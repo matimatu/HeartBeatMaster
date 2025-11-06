@@ -3,4 +3,7 @@ LatexDoc/
 TesiLaurea.code-workspace
 NodeProject_Next/
 NodeProject/
-HeartBeatMaster/Local/node_modules/
+HeartBeatMaster/Local/NodeServer/node_modules/
+HeartBeatMaster/OnlineSite/config.php
+HeartBeatMaster/Local/NodeServer/package-lock.json
+HeartBeatMaster/Local/NodeServer/package.json
