@@ -1,7 +1,7 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from './phpConnector.js';
 
-
+const MAX_CHANNELS = 8;
 const stick = await initializeAntStick();
 if (!stick) {
     console.error("Failed to initialize ANT+ stick");
@@ -9,51 +9,66 @@ if (!stick) {
 }
 
 try {
-    await(stick.open());
+    await (stick.open());
 } catch (err) {
-     console.error("⚠️ Errore sull'apertura dello stick:", err);
+    console.error("⚠️ Errore sull'apertura dello stick:", err);
 }
 
-///////////////////START TO SCAN HEART RATE DEVICES ///////////////////
+//start scanning for heart rate monitors
 let ids = [];
 const hrScanner = new Ant.HeartRateScanner(stick);
 
 hrScanner.on("heartRateData", data => {
-    if(data.DeviceId !== 0 && !ids.includes(data.DeviceId)) {
+    if (data.DeviceId !== 0 && !ids.includes(data.DeviceId)) {
         ids.push(data.DeviceId);
-        console.log("❤️ Nuovo sensore rilevato:");
+        console.log("New sensor found:");
         console.log(`   DeviceID: ${data.DeviceId}`);
         console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
         console.log(`   Beat time: ${data.BeatTime}`);
-        // console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
+        console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
     }
 });
 
 
-//after 2 seconds...
- setTimeout(async ()=> {
-        hrScanner.detach();
-        hrScanner.once("detached", async() =>  
-            {
-            console.log("scanner detached");
-            let result = await checkForDeviceUsers(ids);
-            displayResults(result);
-            });
-    }, 2000);
+//after 2 seconds stop scanning and check for device users
+
+ setTimeout(async () => {
+    hrScanner.detach();
+    hrScanner.once("detached", async () => {
+        console.log("scanner detached");
+        let result = await checkForDeviceUsers(ids);
+        displayResults(result);
+        //TODO handle user interaction to select the wanted devices to attach to
+            //for demo purposes I will just attach to all the devices found after scanning
+        let nextChannelAvailable = 0;
+        console.log("\nAttaching to ALL detected devices...");
+        for (const [deviceId, info] of Object.entries(result)) {
+            await attachToDevice(nextChannelAvailable, deviceId);
+            nextChannelAvailable++;
+            if (nextChannelAvailable >= MAX_CHANNELS) {
+                console.log("Max channels reached, cannot attach to more devices.");
+                break;
+            }
+        }
+     });
+
+ }, 2000);
+
+
 
 
 
 //////////////////////////////////EVENT LISTENERS ///////////////////////////////////////////////////////
 
 // When the stick is ready, start scanning
-stick.on("startup", ()  => {
-    console.log("🚀 Stick ANT+ avviato, inizio scansione...");
+stick.on("startup", () => {
+    console.log("Stick ANT+ started, scanning...");
     hrScanner.scan();
 });
 
 
 stick.on("error", err => {
-    console.error("❌ Errore stick:", err);
+    console.error("Stick error:", err);
 });
 
 // Log when the scanner is attached/detached
@@ -64,15 +79,16 @@ hrScanner.on("attached", () => {
 
 
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
+
 async function initializeAntStick() {
     let stick = new Ant.GarminStick3();
 
-    if(!(await stick.isPresent())) {
+    if (!(await stick.isPresent())) {
         console.log("Stick3 ANT+ doesn't exist");
         console.log("Trying Stick2...");
         stick = new Ant.GarminStick2();
 
-        if(!(await stick.isPresent())){
+        if (!(await stick.isPresent())) {
             console.error("Stick2 doesn't exist!!");
             return null;
         }
@@ -82,7 +98,7 @@ async function initializeAntStick() {
 }
 async function checkForDeviceUsers(ids) {
     if (ids.length === 0) {
-        console.log("Nessun dispositivo rilevato, impossibile interrogare il server.");
+        console.log("No device found, couldn't check for users.");
         process.exit(0);
     }
     let stringIds = ids.map(String);
@@ -90,6 +106,31 @@ async function checkForDeviceUsers(ids) {
     const result = await queryDeviceOwners(stringIds);
 
     return result;
+}
+
+async function attachToDevice(channel,deviceId) {
+  return new Promise(resolve => {
+    const sensor = new Ant.HeartRateSensor(stick);
+
+    sensor.on('attached', () => {
+      console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
+      resolve();
+    });
+
+    sensor.on('detached', () => {
+      console.log(`Sensor ${deviceId} detached`);
+    });
+
+    sensor.attach(channel, deviceId);
+
+    sensor.on("heartRateData", data => {
+        console.log(`   DeviceID: ${data.DeviceId}`);
+        console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
+        console.log(`   Beat time: ${data.BeatTime}`);
+        console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
+    
+    });
+  });
 }
 
 function displayResults(result) {
