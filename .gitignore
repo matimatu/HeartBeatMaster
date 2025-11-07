@@ -7,3 +7,6 @@ HeartBeatMaster/Local/NodeServer/node_modules/
 HeartBeatMaster/OnlineSite/config.php
 HeartBeatMaster/Local/NodeServer/package-lock.json
 HeartBeatMaster/Local/NodeServer/package.json
+HeartBeatMaster/OnlineSite/style.css
+HeartBeatMaster/OnlineSite/index.php
+HeartBeatMaster/OnlineSite/Pages/utenti.php

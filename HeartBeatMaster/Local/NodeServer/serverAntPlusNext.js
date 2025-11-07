@@ -14,7 +14,6 @@ try {
      console.error("⚠️ Errore sull'apertura dello stick:", err);
 }
 
-
 ///////////////////START TO SCAN HEART RATE DEVICES ///////////////////
 let ids = [];
 const hrScanner = new Ant.HeartRateScanner(stick);
@@ -31,12 +30,16 @@ hrScanner.on("heartRateData", data => {
 });
 
 
-//after 5 seconds...
+//after 2 seconds...
  setTimeout(async ()=> {
-                await hrScanner.detach();
-                let result = await checkForDeviceUsers(ids);
-                displayResults(result);
-            }, 3000);
+        hrScanner.detach();
+        hrScanner.once("detached", async() =>  
+            {
+            console.log("scanner detached");
+            let result = await checkForDeviceUsers(ids);
+            displayResults(result);
+            });
+    }, 2000);
 
 
 
@@ -52,6 +55,13 @@ stick.on("startup", ()  => {
 stick.on("error", err => {
     console.error("❌ Errore stick:", err);
 });
+
+// Log when the scanner is attached/detached
+hrScanner.on("attached", () => {
+    console.log("scanner attached");
+});
+
+
 
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
 async function initializeAntStick() {
@@ -77,11 +87,9 @@ async function checkForDeviceUsers(ids) {
     }
     let stringIds = ids.map(String);
     console.log("Sending device IDs to server:", stringIds);
-    // (async () => {
-    const result = await queryDeviceOwners(stringIds, { url: 'http://localhost/PulseMonitorAdvanced/API/device-registration-status.php', timeoutMs: 5000 });
-    console.log(result);
+    const result = await queryDeviceOwners(stringIds);
+
     return result;
-    // })();
 }
 
 function displayResults(result) {
