@@ -1,6 +1,8 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../phpConnector.js";
 
+let wsClient = null;
+
 export async function startAntManager() {
     const MAX_CHANNELS = 8;
     const stick = await initializeAntStick();
@@ -17,8 +19,6 @@ export async function startAntManager() {
     let ids = [];
     const hrScanner = new Ant.HeartRateScanner(stick);
 
-   
-
 
     hrScanner.on("heartRateData", data => {
         if (data.DeviceId !== 0 && !ids.includes(data.DeviceId)) {
@@ -28,6 +28,8 @@ export async function startAntManager() {
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             console.log(`   Beat time: ${data.BeatTime}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
+            //send data to frontend
+            sendToClient({ type: "newSensor", data });
         }
     });
     //after 2 seconds stop scanning and check for device users
@@ -74,6 +76,17 @@ export async function startAntManager() {
 
 
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
+
+export function setWsConnection(ws) {
+  wsClient = ws;
+}
+
+function sendToClient(obj) {
+  if (wsClient && wsClient.readyState === wsClient.OPEN) {
+    wsClient.send(JSON.stringify(obj));
+  }
+}
+
 
 async function initializeAntStick() {
     let stick = new Ant.GarminStick3();
@@ -123,6 +136,7 @@ async function attachToDevice(channel, deviceId) {
             console.log(`   Beat time: ${data.BeatTime}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
 
+            sendToClient({ type: "heartRate", data });
         });
     });
 }
