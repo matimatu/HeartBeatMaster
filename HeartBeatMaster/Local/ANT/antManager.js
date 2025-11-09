@@ -38,6 +38,8 @@ export async function startAntManager() {
         hrScanner.detach();
         hrScanner.once("detached", async () => {
             console.log("scanner detached");
+            sendToClient({ type: "scanResult", data: ids });
+
             let result = await checkForDeviceUsers(ids);
             displayResults(result);
             //TODO handle user interaction to select the wanted devices to attach to
@@ -121,6 +123,7 @@ async function attachToDevice(channel, deviceId) {
 
         sensor.on('attached', () => {
             console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
+            sendToClient({ type: "attached", deviceId, channel });
             resolve();
         });
 

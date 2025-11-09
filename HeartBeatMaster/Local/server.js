@@ -9,7 +9,7 @@ const wss = new WebSocketServer({ server });
 
 app.use(express.static("public"));
 
-startAntManager();
+
 
 let clientSocket = null;
 
@@ -20,8 +20,9 @@ wss.on("connection", (ws) => {
   setWsConnection(ws);
 
   ws.on("close", () => {
-    console.log("🔌 Client disconnected");
+    console.log("Client disconnected");
     clientSocket = null;
   });
 });
   
+await startAntManager();
