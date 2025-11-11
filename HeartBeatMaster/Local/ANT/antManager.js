@@ -1,11 +1,19 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../phpConnector.js";
 
+let stick = null;
 let wsClient = null;
-
+let running = false; // to handle multiple starts
+const DEBUG = true;
+const MAX_CHANNELS = 8;
 export async function startAntManager() {
-    const MAX_CHANNELS = 8;
-    const stick = await initializeAntStick();
+    console.log("\n\nStarting ANT+ process...");
+    if (running) {
+    console.log("\n\nANT+ process already running.");
+    return;
+    }
+    running = true;
+    stick = await initializeAntStick();
     if (!stick) {
         console.error("Failed to initialize ANT+ stick");
         process.exit(1);
@@ -13,7 +21,7 @@ export async function startAntManager() {
     try {
         await (stick.open());
     } catch (err) {
-        console.error("⚠️ Errore sull'apertura dello stick:", err);
+        console.error("Errore sull'apertura dello stick:", err);
     }
     //start scanning for heart rate monitors
     let ids = [];
@@ -47,7 +55,7 @@ export async function startAntManager() {
             let nextChannelAvailable = 0;
             console.log("\nAttaching to ALL detected devices...");
             for (const [deviceId, info] of Object.entries(result)) {
-                await attachToDevice(stick,nextChannelAvailable, deviceId);
+                await attachToDevice(nextChannelAvailable, deviceId);
                 nextChannelAvailable++;
                 if (nextChannelAvailable >= MAX_CHANNELS) {
                     console.log("Max channels reached, cannot attach to more devices.");
@@ -76,7 +84,6 @@ export async function startAntManager() {
 
 }
 
-
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
 
 export function setWsConnection(ws) {
@@ -91,7 +98,7 @@ function sendToClient(obj) {
 
 
 async function initializeAntStick() {
-    let stick = new Ant.GarminStick3();
+    stick = new Ant.GarminStick3();
     if (!(await stick.isPresent())) {
         console.log("Stick3 ANT+ doesn't exist");
         console.log("Trying Stick2...");
@@ -102,7 +109,6 @@ async function initializeAntStick() {
             return null;
         }
     }
-
     return stick;
 }
 async function checkForDeviceUsers(ids) {
@@ -117,7 +123,7 @@ async function checkForDeviceUsers(ids) {
     return result;
 }
 
-async function attachToDevice(stick,channel, deviceId) {
+async function attachToDevice(channel, deviceId) {
     return new Promise(resolve => {
         const sensor = new Ant.HeartRateSensor(stick);
 
