@@ -47,7 +47,7 @@ export async function startAntManager() {
             let nextChannelAvailable = 0;
             console.log("\nAttaching to ALL detected devices...");
             for (const [deviceId, info] of Object.entries(result)) {
-                await attachToDevice(nextChannelAvailable, deviceId);
+                await attachToDevice(stick,nextChannelAvailable, deviceId);
                 nextChannelAvailable++;
                 if (nextChannelAvailable >= MAX_CHANNELS) {
                     console.log("Max channels reached, cannot attach to more devices.");
@@ -117,7 +117,7 @@ async function checkForDeviceUsers(ids) {
     return result;
 }
 
-async function attachToDevice(channel, deviceId) {
+async function attachToDevice(stick,channel, deviceId) {
     return new Promise(resolve => {
         const sensor = new Ant.HeartRateSensor(stick);
 
