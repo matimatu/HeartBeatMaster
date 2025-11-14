@@ -52,19 +52,10 @@ export async function startAntManager() {
             displayResults(result);
             //TODO handle user interaction to select the wanted devices to attach to
             //for demo purposes I will just attach to all the devices found after scanning
-            let nextChannelAvailable = 0;
-            console.log("\nAttaching to ALL detected devices...");
-            for (const [deviceId, info] of Object.entries(result)) {
-                await attachToDevice(nextChannelAvailable, deviceId);
-                nextChannelAvailable++;
-                if (nextChannelAvailable >= MAX_CHANNELS) {
-                    console.log("Max channels reached, cannot attach to more devices.");
-                    break;
-                }
-            }
+            // await attachSelectedDevices(result);
         });
 
-    }, 2000);
+    }, 4000);
 
     // When the stick is ready, start scanning
     stick.on("startup", () => {
@@ -84,6 +75,8 @@ export async function startAntManager() {
 
 }
 
+
+
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
 
 export function setWsConnection(ws) {
@@ -96,6 +89,17 @@ function sendToClient(obj) {
   }
 }
 
+export async function handleAppMessage(msg) {
+  switch (msg.type) {
+    case "selectedDevices":
+      console.log("List of selected devices received from app:", msg.data);
+      attachSelectedDevices(msg.data);
+      break;
+
+    default:
+      console.log("Command not recognised", msg);
+  }
+}
 
 async function initializeAntStick() {
     stick = new Ant.GarminStick3();
@@ -117,24 +121,42 @@ async function checkForDeviceUsers(ids) {
         process.exit(0);
     }
     let stringIds = ids.map(String);
-    console.log("Sending device IDs to server:", stringIds);
+    console.log("Sending device IDs with API:", stringIds);
     const result = await queryDeviceOwners(stringIds);
 
     return result;
 }
 
+async function attachSelectedDevices(ids) {
+    let nextChannelAvailable = 0;
+    console.log("\nAttaching to selected devices...");
+    console.log(ids.length + " devices to attach to.");
+    for (const deviceId of ids) {
+        console.log("\nAttaching to device:", deviceId);
+        await attachToDevice(nextChannelAvailable, deviceId); 
+        nextChannelAvailable++;
+        if (nextChannelAvailable >= MAX_CHANNELS) {
+            console.log("Max channels reached, cannot attach to more devices.");
+            break;
+        }
+    }
+}
+
+
 async function attachToDevice(channel, deviceId) {
     return new Promise(resolve => {
         const sensor = new Ant.HeartRateSensor(stick);
-
+       
         sensor.on('attached', () => {
             console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
-            sendToClient({ type: "attached", deviceId, channel });
+            sendToClient({ type: "UserDevice_attached", deviceId, channel });
             resolve();
         });
 
         sensor.on('detached', () => {
             console.log(`Sensor ${deviceId} detached`);
+            sendToClient({ type: "UserDevice_detached", deviceId, channel });
+
         });
 
         sensor.attach(channel, deviceId);
@@ -151,6 +173,7 @@ async function attachToDevice(channel, deviceId) {
 }
 
 function displayResults(result) {
+    console.log("\nResults:");
     for (const [deviceId, info] of Object.entries(result)) {
         console.log("Device:", deviceId);
 
@@ -158,6 +181,12 @@ function displayResults(result) {
             console.log("  Nome completo:", info.userData.nome, info.userData.cognome);
             console.log("  Peso:", info.userData.peso);
             console.log("  Altezza:", info.userData.altezza);
+            console.log("  Sesso:", info.userData.maschio === "1" ? "Maschio" : "Femmina");
+            sendToClient({ type: "deviceUserInfo", data: { deviceId, ...info.userData } });
+        }
+        else
+        {
+            console.log("  No user data associated with this device.");
         }
     }
 }
