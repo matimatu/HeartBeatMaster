@@ -21,6 +21,7 @@ $utenti__TABLE = 'utenti';
     $utenti_data_nascita__COLUMN = 'data_nascita';
     $utenti_altezza__COLUMN = 'altezza';
     $utenti_peso__COLUMN = 'peso';
+    $utenti_maschio__COLUMN = 'maschio';
 
 
 function connectToDatabase() {

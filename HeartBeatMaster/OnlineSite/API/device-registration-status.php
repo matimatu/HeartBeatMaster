@@ -3,12 +3,12 @@ require_once '../dbConnect.php'; // Connessione al DB
 /**
  *
  * REST API skeleton that accepts POST JSON with { device_ids: [ ... ] }
- * and returns a mapping of device_id -> { registered: bool, user: { nome, cognome, data_nascita, altezza, peso } | null }
+ * and returns a mapping of device_id -> { registered: bool, user: { nome, cognome, data_nascita, altezza, peso,maschio } | null }
  *
  * Assumptions:
  *  - Database contains tables:
  *      - `fasce` with columns: `id` (PK), `chiave` (device identifier)
- *      - `utenti` with columns: `id` (PK), `nome`, `cognome`, `data_nascita`, `altezza`, `peso`, ...
+ *      - `utenti` with columns: `id` (PK), `nome`, `cognome`, `data_nascita`, `altezza`, `peso`,`maschio` ...
  *      - `fascePerUtenti` with columns: `id`, `fascia_id` (FK -> fasce.id), `utente_id` (FK -> utenti.id)
  *  - `chiave` stores the device_id values you will POST.
  *
@@ -21,7 +21,7 @@ require_once '../dbConnect.php'; // Connessione al DB
  *  {
  *    "success": true,
  *    "data": {
- *      "20024": { "registered": true, "user": { "nome": "Mario", "cognome": "Rossi", "data_nascita":"1990-01-01", "altezza":180, "peso":75 } },
+ *      "20024": { "registered": true, "user": { "nome": "Mario", "cognome": "Rossi", "data_nascita":"1990-01-01", "altezza":180, "peso":75 , "maschio":1} },
  *      "12354": { "registered": false, "user": null }
  *    }
  *  }
@@ -87,7 +87,7 @@ try {
     // Query: join fasce -> fascePerUtenti -> utenti
     $sql = "SELECT f.".$fasce_chiave__COLUMN." AS device_id,
                    u.".$utenti_ID__COLUMN." AS user_id, u.".$utenti_nome__COLUMN.", u.".$utenti_cognome__COLUMN.",
-                   u.".$utenti_data_nascita__COLUMN.", u.".$utenti_altezza__COLUMN.", u.".$utenti_peso__COLUMN."
+                   u.".$utenti_data_nascita__COLUMN.", u.".$utenti_altezza__COLUMN.", u.".$utenti_peso__COLUMN.",u.".$utenti_maschio__COLUMN."
             FROM " . $fasce__TABLE . " f
             JOIN " . $fascePerUtenti__TABLE . " fp ON fp.".$fascePerUtenti_ID_fascia__COLUMN." = f.".$fascePerUtenti_ID__COLUMN."
             JOIN ". $utenti__TABLE ." u ON u.".$utenti_ID__COLUMN." = fp.".$fascePerUtenti_ID_utente__COLUMN."
@@ -119,6 +119,7 @@ try {
                 'data_nascita' => $row['data_nascita'] ?? null,
                 'altezza' => $row['altezza'] ?? null,
                 'peso' => $row['peso'] ?? null,
+                'maschio' => $row['maschio'] ?? null,
             ],
         ];
     }
