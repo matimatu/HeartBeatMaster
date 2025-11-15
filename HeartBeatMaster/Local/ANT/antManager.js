@@ -1,3 +1,4 @@
+
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../phpConnector.js";
 
@@ -5,12 +6,11 @@ let stick = null;
 let wsClient = null;
 let running = false; // to handle multiple starts
 const DEBUG = true;
-const MAX_CHANNELS = 8;
 export async function startAntManager() {
     console.log("\n\nStarting ANT+ process...");
     if (running) {
-    console.log("\n\nANT+ process already running.");
-    return;
+        console.log("\n\nANT+ process already running.");
+        return;
     }
     running = true;
     stick = await initializeAntStick();
@@ -59,6 +59,7 @@ export async function startAntManager() {
 
     // When the stick is ready, start scanning
     stick.on("startup", () => {
+        console.log("Max channels:", stick.maxChannels);
         console.log("Stick ANT+ started, scanning...");
         hrScanner.scan();
     });
@@ -133,21 +134,47 @@ async function attachSelectedDevices(ids) {
     console.log(ids.length + " devices to attach to.");
     for (const deviceId of ids) {
         console.log("\nAttaching to device:", deviceId);
-        await attachToDevice(nextChannelAvailable, deviceId); 
+        try {
+            await attachToDevice(nextChannelAvailable, deviceId); 
+        } catch (error) {
+            console.error(`Failed to attach to device ${deviceId}:`, error.message);
+            console.log("Trying wildcard attach...");
+            await attachToDevice(nextChannelAvailable, 0); //tryng wildcard attach
+        }
+        
         nextChannelAvailable++;
-        if (nextChannelAvailable >= MAX_CHANNELS) {
+        if (nextChannelAvailable >= stick.maxChannels) {
             console.log("Max channels reached, cannot attach to more devices.");
             break;
         }
     }
 }
 
-
+/**
+ * Attaches to a specific ANT+ heart rate device on a given channel.
+ * 
+ * @async
+ * @function attachToDevice
+ * @param {number} channel - The ANT+ channel number to attach the sensor to
+ * @param {number} deviceId - The device ID of the heart rate sensor to attach
+ * @returns {Promise<void>} Resolves when the sensor is successfully attached
+ * @throws {Error} Throws an error with message "ATTACH_TIMEOUT" if the sensor fails to attach within 2000ms
+ * 
+ * @description
+ * Attempts to attach a heart rate sensor to the specified channel and device ID.
+ * Sets up event listeners for sensor attachment, detachment, and heart rate data.
+ * Sends WebSocket messages to notify clients of attachment status and heart rate updates.
+ * If attachment does not complete within 2 seconds, the promise is rejected with an ATTACH_TIMEOUT error.
+ */
 async function attachToDevice(channel, deviceId) {
-    return new Promise(resolve => {
+    return new Promise((resolve,reject) => {
         const sensor = new Ant.HeartRateSensor(stick);
-       
+        let finished = false;
+
         sensor.on('attached', () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
             console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
             sendToClient({ type: "UserDevice_attached", deviceId, channel });
             resolve();
@@ -169,6 +196,15 @@ async function attachToDevice(channel, deviceId) {
 
             sendToClient({ type: "heartRate", data });
         });
+
+        const timer = setTimeout(() => {
+            if (finished) return;
+            finished = true;
+
+            try { sensor.detach(); } catch { }
+
+            reject(new Error("ATTACH_TIMEOUT"));
+        }, 2000);
     });
 }
 

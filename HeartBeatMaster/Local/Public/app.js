@@ -1,11 +1,7 @@
-let usersWithDevices = [];
+import { calcIntensity, calcHeartRateMax, getHeartRateMin } from "./statsHandler.js";
 const DEBUG = true;
 
 const ws = new WebSocket(`ws://${location.host}`);
-const log = msg => {
-  const el = document.getElementById("log");
-  el.innerHTML += `<div>${msg}</div>`;
-};
 
 ws.onopen = () => log("Connesso al server");
 
@@ -26,11 +22,7 @@ ws.onmessage = e => {
       updateDevice(msg.data.DeviceId, msg.data.ComputedHeartRate);
       break;
     case "deviceUserInfo":
-      log(`Utente con fascia trovato: ID: ${msg.data.deviceId},  ${msg.data.nome} ${msg.data.cognome},
-         Peso: ${msg.data.peso}, Altezza: ${msg.data.altezza} cm,
-          Data di nascita: ${msg.data.data_nascita}, Sesso: ${msg.data.maschio === "1" ? "Maschio" : "Femmina"}`);
-      // const heartRateMax = calcHeartRateMax(msg.data.data_nascita);
-      // const heartRatemin = getHeartRateMin(msg.data.maschio);
+      listOfUsersWithDevices_render(msg.data.deviceId,msg.data.nome,msg.data.cognome);
       document.getElementById("button_startAttach").style.visibility = "visible";
       break;
 
@@ -39,12 +31,36 @@ ws.onmessage = e => {
   }
 };
 
+//////////////////////////////////////// EVENT LISTENERS ////////////////////////////////////////////
 document.getElementById("button_startAttach").addEventListener("click", ()=> {
     console.log("Sending selected devices to server...");
     let selectedUsers = searchAndPopolateSelectedUsers();
     ws.send(JSON.stringify({ type: "selectedDevices", data: selectedUsers }));
+    // const heartRateMax = calcHeartRateMax(msg.data.data_nascita);
+    // const heartRatemin = getHeartRateMin(msg.data.maschio);
 });
 
+
+
+/////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
+function log(msg){
+  const el = document.getElementById("log");
+  el.innerHTML += `<div>${msg}</div>`;
+};
+
+function listOfUsersWithDevices_render(deviceId,nome,cognome){
+  const table = document.getElementsByClassName("found-devices")[0];
+    const row = document.createElement("tr");
+    const cell1 = document.createElement("td");
+    cell1.textContent = deviceId;
+
+    const cell2 = document.createElement("td");
+    cell2.textContent = nome + " " + cognome;
+
+    row.appendChild(cell1);
+    row.appendChild(cell2);
+    table.appendChild(row);
+};
 
 function updateDevice(id, heartRate,age,weight,height) {
   const container = document.getElementById("devices");
@@ -59,43 +75,18 @@ function updateDevice(id, heartRate,age,weight,height) {
   el.textContent += ` - Intensità: ${calcIntensity(hr, 190, 60)} %`;
 }
 
-function calcIntensity(hr, hrMax, hrRest) {
-  const hrr = hrMax - hrRest;
-  const intensity = ((hr - hrRest) / hrr) * 100;
-  return intensity.toFixed(2);
-}
 
-function calcHeartRateMax(bornDate) {
-  const birthYear = new Date(bornDate).getFullYear();
-  const currentYear = new Date().getFullYear();
-  const age = currentYear - birthYear;
-  return 208 -0.7*age;
-}
-
-function getHeartRateMin(male) {
-  if(male==="1"){
-    return 0.64;
-  } else if(male==="0"){
-    return 0.76;
-  }
-  else
-  {
-    throw new Error("Invalid value for sex parameter: "+ male);
-  }
-}
-
-function addUserWithDevice(id, name, surname, weight, height) {
-  const newDevice = { id, name, surname, weight, height };
-  usersWithDevices.push(newDevice);
-  if(DEBUG)
-    console.log("New user with device added:", newDevice);
-}
 
 function searchAndPopolateSelectedUsers() {
   let selectedUsers = [];
   //TODO really search in the table of found devices
-  // const table = document.querySelector(".found-devices");
-  // const rows = table.querySelectorAll("tr");
-  selectedUsers.push(20026);
+    const table = document.getElementsByClassName("found-devices")[0];
+    const rows = table.querySelectorAll("tr");
+    rows.forEach(row => {
+        const deviceId = row.cells[0].textContent;
+        selectedUsers.push(parseInt(deviceId));
+    });
+  // selectedUsers.push(20026);
   return selectedUsers;
+  // return [20026];  
 }

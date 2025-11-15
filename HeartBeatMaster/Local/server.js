@@ -1,7 +1,7 @@
 import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
-import { startAntManager,setWsConnection,handleAppMessage  } from "./ANT/AntManager.js";
+import { startAntManager,setWsConnection,handleAppMessage  } from "./ANT/antManager.js";
 
 const PORT = 8081;      //8080 IS THE DEAFULT PORT FOR APACHE XAMPP,USED FOR TESTING WITH LOCALHOST
 const app = express();
