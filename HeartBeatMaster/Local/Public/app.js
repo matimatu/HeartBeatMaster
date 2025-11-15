@@ -63,6 +63,7 @@ function listOfUsersWithDevices_render(deviceId,nome,cognome){
 };
 
 function updateDevice(id, heartRate,age,weight,height) {
+  if(id ===0) return; //ignore wildcard id
   const container = document.getElementById("devices");
   let el = document.getElementById(`dev-${id}`);
   if (!el) {

@@ -50,9 +50,8 @@ export async function startAntManager() {
 
             let result = await checkForDeviceUsers(ids);
             displayResults(result);
-            //TODO handle user interaction to select the wanted devices to attach to
-            //for demo purposes I will just attach to all the devices found after scanning
-            // await attachSelectedDevices(result);
+            console.log("\nwaiting for client to select devices...");
+
         });
 
     }, 4000);
