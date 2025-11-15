@@ -56,9 +56,15 @@ function listOfUsersWithDevices_render(deviceId,nome,cognome){
 
     const cell2 = document.createElement("td");
     cell2.textContent = nome + " " + cognome;
-
+    const cell3 = document.createElement("td");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = true;
+    cell3.appendChild(checkbox);
     row.appendChild(cell1);
     row.appendChild(cell2);
+    row.appendChild(cell3);
+
     table.appendChild(row);
 };
 
@@ -84,8 +90,12 @@ function searchAndPopolateSelectedUsers() {
     const table = document.getElementsByClassName("found-devices")[0];
     const rows = table.querySelectorAll("tr");
     rows.forEach(row => {
-        const deviceId = row.cells[0].textContent;
-        selectedUsers.push(parseInt(deviceId));
+        const rowCheckbox = row.cells[2].querySelector("input[type='checkbox']");
+        if (rowCheckbox.checked)
+        {
+          const deviceId = row.cells[0].textContent;
+          selectedUsers.push(parseInt(deviceId));
+        }
     });
   // selectedUsers.push(20026);
   return selectedUsers;

@@ -54,7 +54,7 @@ export async function startAntManager() {
 
         });
 
-    }, 4000);
+    }, 2000);
 
     // When the stick is ready, start scanning
     stick.on("startup", () => {
@@ -163,7 +163,7 @@ async function attachSelectedDevices(ids) {
  * Attempts to attach a heart rate sensor to the specified channel and device ID.
  * Sets up event listeners for sensor attachment, detachment, and heart rate data.
  * Sends WebSocket messages to notify clients of attachment status and heart rate updates.
- * If attachment does not complete within 2 seconds, the promise is rejected with an ATTACH_TIMEOUT error.
+ * If attachment does not complete within 1 seconds, the promise is rejected with an ATTACH_TIMEOUT error.
  */
 async function attachToDevice(channel, deviceId) {
     return new Promise((resolve,reject) => {
@@ -188,7 +188,7 @@ async function attachToDevice(channel, deviceId) {
         sensor.attach(channel, deviceId);
 
         sensor.on("heartRateData", data => {
-            console.log(`   DeviceID: ${data.DeviceId}`);
+            console.log(`   \nDeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             console.log(`   Beat time: ${data.BeatTime}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
@@ -203,7 +203,7 @@ async function attachToDevice(channel, deviceId) {
             try { sensor.detach(); } catch { }
 
             reject(new Error("ATTACH_TIMEOUT"));
-        }, 2000);
+        }, 1000);
     });
 }
 
