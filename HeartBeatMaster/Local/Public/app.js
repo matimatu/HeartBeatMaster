@@ -13,19 +13,20 @@ ws.onmessage = e => {
       break;
     case "scanResult":
       log(`Scansione completata (${Object.keys(msg.data).length} dispositivi trovati)`);
-      
       break;
     case "UserDevice_attached":
       log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
       break;
     case "heartRate":
-      updateDevice(msg.data.DeviceId, msg.data.ComputedHeartRate);
+      renderDeviceBpm(msg.data.DeviceId, msg.data.ComputedHeartRate);
       break;
     case "deviceUserInfo":
-      listOfUsersWithDevices_render(msg.data.deviceId,msg.data.nome,msg.data.cognome);
+      renderTableUsersWithDevices(msg.data.deviceId,msg.data.nome,msg.data.cognome);
       document.getElementById("button_startAttach").style.visibility = "visible";
       break;
-
+    case "currentState":
+      restoreUI(msg.data);
+      break;
     default:
       log(`${JSON.stringify(msg)}`);
   }
@@ -33,11 +34,11 @@ ws.onmessage = e => {
 
 //////////////////////////////////////// EVENT LISTENERS ////////////////////////////////////////////
 document.getElementById("button_startAttach").addEventListener("click", ()=> {
+    let selectedUsers = scrapeSelectedUsers();
     console.log("Sending selected devices to server...");
-    let selectedUsers = searchAndPopolateSelectedUsers();
     ws.send(JSON.stringify({ type: "selectedDevices", data: selectedUsers }));
-    // const heartRateMax = calcHeartRateMax(msg.data.data_nascita);
-    // const heartRatemin = getHeartRateMin(msg.data.maschio);
+    const heartRateMax = calcHeartRateMax(msg.data.data_nascita);
+    const heartRatemin = getHeartRateMin(msg.data.maschio);
 });
 
 
@@ -48,7 +49,7 @@ function log(msg){
   el.innerHTML += `<div>${msg}</div>`;
 };
 
-function listOfUsersWithDevices_render(deviceId,nome,cognome){
+function renderTableUsersWithDevices(deviceId,nome,cognome){
   const table = document.getElementsByClassName("found-devices")[0];
     const row = document.createElement("tr");
     const cell1 = document.createElement("td");
@@ -61,14 +62,14 @@ function listOfUsersWithDevices_render(deviceId,nome,cognome){
     checkbox.type = "checkbox";
     checkbox.checked = true;
     cell3.appendChild(checkbox);
+
     row.appendChild(cell1);
     row.appendChild(cell2);
     row.appendChild(cell3);
-
     table.appendChild(row);
 };
 
-function updateDevice(id, heartRate,age,weight,height) {
+function renderDeviceBpm(id, heartRate,age,weight,height) {
   if(id ===0) return; //ignore wildcard id
   const container = document.getElementById("devices");
   let el = document.getElementById(`dev-${id}`);
@@ -79,12 +80,29 @@ function updateDevice(id, heartRate,age,weight,height) {
     container.appendChild(el);
   }
   el.textContent = `Dispositivo ${id}: ${heartRate} bpm`;
-  el.textContent += ` - Intensità: ${calcIntensity(hr, 190, 60)} %`;
+  el.textContent += ` - Intensità: ${calcIntensity(heartRate, 190, 60)} %`;
+}
+
+function restoreUI(state) {
+  if (state.phase === "scanning") {
+    //for now do nothing, really difficult to refresh on scanning phase
+  }
+
+  if (state.phase === "selection") {
+    console.log("Restoring selection UI...");
+    renderSelectionUI();
+    renderFoundDevices(state.foundDevices);
+    markSelectedDevices(state.selectedDevices);
+  }
+
+  if (state.phase === "training") {
+    console.log("Restoring training UI...");
+    renderTrainingUI();
+  }
 }
 
 
-
-function searchAndPopolateSelectedUsers() {
+function scrapeSelectedUsers() {
   let selectedUsers = [];
   //TODO really search in the table of found devices
     const table = document.getElementsByClassName("found-devices")[0];
@@ -97,7 +115,5 @@ function searchAndPopolateSelectedUsers() {
           selectedUsers.push(parseInt(deviceId));
         }
     });
-  // selectedUsers.push(20026);
   return selectedUsers;
-  // return [20026];  
 }

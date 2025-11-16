@@ -8,6 +8,13 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
+const serverState = {
+  phase: "scanning",  // "scanning" | "selection" | "training"
+  foundDevices: [],   // [{ deviceId, name, surname, weight, hrMax, hrMin }] useful in scanning and selection phases
+  selectedDevices: [] // [{ deviceId, name, surname, weight, hrMax, hrMin }] useful in training phase
+};
+
+
 app.use(express.static("public"));
 
 let clientSocket = null;
@@ -20,9 +27,9 @@ server.listen(PORT, () => {
 wss.on("connection", (ws) => {
   console.log("Client connected");
   clientSocket = ws;
-
+  sendStateToClient(ws);
   setWsConnection(ws);
-
+  
   startAntManager();
 
   ws.on("message", (message) => {
@@ -42,5 +49,15 @@ wss.on("connection", (ws) => {
   });
 });
 
+export function setPhase(newPhase) {
+  serverState.phase = newPhase;
+}
+
+function sendStateToClient(ws) {
+  ws.send(JSON.stringify({
+    type: "currentState",
+    data: serverState
+  }));
+}
 
 

@@ -1,6 +1,7 @@
 
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../phpConnector.js";
+import { setPhase } from "../server.js";
 
 let stick = null;
 let wsClient = null;
@@ -50,8 +51,8 @@ export async function startAntManager() {
 
             let result = await checkForDeviceUsers(ids);
             displayResults(result);
+            setPhase("selection");
             console.log("\nwaiting for client to select devices...");
-
         });
 
     }, 2000);
@@ -92,8 +93,17 @@ function sendToClient(obj) {
 export async function handleAppMessage(msg) {
   switch (msg.type) {
     case "selectedDevices":
-      console.log("List of selected devices received from app:", msg.data);
-      attachSelectedDevices(msg.data);
+        console.log("List of selected devices received from app:", msg.data);
+        let result = await attachSelectedDevices(msg.data);
+        if (result) {
+            if(DEBUG) {           
+                console.log("Successfully attached to all selected devices.");
+                console.log("Entering training phase...");
+            }
+            setPhase("training");
+        } else {
+        console.error("Failed to attach to all selected devices.");
+        }
       break;
 
     default:
@@ -138,15 +148,22 @@ async function attachSelectedDevices(ids) {
         } catch (error) {
             console.error(`Failed to attach to device ${deviceId}:`, error.message);
             console.log("Trying wildcard attach...");
-            await attachToDevice(nextChannelAvailable, 0); //tryng wildcard attach
+            try {
+                await attachToDevice(nextChannelAvailable, 0); //tryng wildcard attach
+                
+            } catch (error) {
+                console.error(`Wildcard attach also failed for device ${deviceId}:`, error.message);
+                return false;
+            }
         }
         
         nextChannelAvailable++;
         if (nextChannelAvailable >= stick.maxChannels) {
             console.log("Max channels reached, cannot attach to more devices.");
-            break;
+            return false;
         }
     }
+    return true;
 }
 
 /**
