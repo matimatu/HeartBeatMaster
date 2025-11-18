@@ -12,9 +12,9 @@ export function calcHeartRateMax(bornDate) {
 }
 
 export function getHeartRateMin(male) {
-  if(male==="1"){
+  if(String(male)==="1"){
     return 0.64;
-  } else if(male==="0"){
+  } else if(String(male)==="0"){
     return 0.76;
   }
   else

@@ -1,6 +1,9 @@
 import { calcIntensity, calcHeartRateMax, getHeartRateMin } from "./statsHandler.js";
 const DEBUG = true;
-
+let clientState = {
+  foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate }]               useful in scanning and selection phases
+  selectedDevices: [] // [{ deviceId, name, surname, weight, birthdate,hrMax, hrMin }]  useful in training phase
+};
 const ws = new WebSocket(`ws://${location.host}`);
 
 ws.onopen = () => log("Connesso al server");
@@ -18,29 +21,46 @@ ws.onmessage = e => {
       log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
       break;
     case "heartRate":
-      renderDeviceBpm(msg.data.DeviceId, msg.data.ComputedHeartRate);
+      renderDeviceStats(msg.data.DeviceId, msg.data.ComputedHeartRate);
       break;
-    case "deviceUserInfo":
-      renderTableUsersWithDevices(msg.data.deviceId,msg.data.nome,msg.data.cognome);
+    case "deviceUsersInfo":
+      renderTableUsersWithDevice(msg.data.deviceId,msg.data.nome,msg.data.cognome);
       document.getElementById("button_startAttach").style.visibility = "visible";
+      ws.send(JSON.stringify({ type: "updateFoundDevice", data: msg.data }));  //sending data to server
       break;
     case "currentState":
-      restoreUI(msg.data);
+      switch (msg.data.phase) {
+        case "scanning":
+          break;
+        case "selection":
+          clientState.foundDevices = msg.data.foundDevices;
+          break;
+        case "training":
+          clientState.selectedDevices = msg.data.selectedDevices;
+          for(const selectedDevice of clientState.selectedDevices){
+            selectedDevice.hrMax = calcHeartRateMax(selectedDevice.data_nascita);
+            selectedDevice.hrMin = getHeartRateMin(selectedDevice.maschio);
+          }
+          break;
+        default:
+          console.error("Invalid phase:", msg.data.phase);
+          return;
+      }
+      if(DEBUG) 
+          console.log("clientState updated:", clientState, msg.data.phase);
+      // restoreUI(msg.data);   //TODO handle restoration of UI based on current state
       break;
     default:
-      log(`${JSON.stringify(msg)}`);
+      log(`message type not recognised: ${JSON.stringify(msg)}`);
   }
 };
 
 //////////////////////////////////////// EVENT LISTENERS ////////////////////////////////////////////
 document.getElementById("button_startAttach").addEventListener("click", ()=> {
-    let selectedUsers = scrapeSelectedUsers();
+    let selectedDeviceIds = scrapeSelectedDeviceIds();
     console.log("Sending selected devices to server...");
-    ws.send(JSON.stringify({ type: "selectedDevices", data: selectedUsers }));
-    const heartRateMax = calcHeartRateMax(msg.data.data_nascita);
-    const heartRatemin = getHeartRateMin(msg.data.maschio);
+    ws.send(JSON.stringify({ type: "updateSelectedDevice", data: selectedDeviceIds }));  //sending data to server which foward to ANT Manager
 });
-
 
 
 /////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
@@ -49,7 +69,7 @@ function log(msg){
   el.innerHTML += `<div>${msg}</div>`;
 };
 
-function renderTableUsersWithDevices(deviceId,nome,cognome){
+function renderTableUsersWithDevice(deviceId,nome,cognome){
   const table = document.getElementsByClassName("found-devices")[0];
     const row = document.createElement("tr");
     const cell1 = document.createElement("td");
@@ -69,7 +89,7 @@ function renderTableUsersWithDevices(deviceId,nome,cognome){
     table.appendChild(row);
 };
 
-function renderDeviceBpm(id, heartRate,age,weight,height) {
+function renderDeviceStats(id, heartRate,age,weight,height) {
   if(id ===0) return; //ignore wildcard id
   const container = document.getElementById("devices");
   let el = document.getElementById(`dev-${id}`);
@@ -79,31 +99,35 @@ function renderDeviceBpm(id, heartRate,age,weight,height) {
     el.className = "device";
     container.appendChild(el);
   }
-  el.textContent = `Dispositivo ${id}: ${heartRate} bpm`;
-  el.textContent += ` - Intensità: ${calcIntensity(heartRate, 190, 60)} %`;
+  const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
+  if(selectedDevice){
+    el.textContent = ((selectedDevice.nome && selectedDevice.cognome) ? selectedDevice.nome + " " + selectedDevice.cognome : "nome non trovato" + ": ");
+    el.textContent += `: ${heartRate} bpm`;
+    el.textContent += ` - Intensità: ${calcIntensity(heartRate, calcHeartRateMax(selectedDevice.data_nascita), getHeartRateMin(selectedDevice.maschio))} %`;
+  }
 }
 
 function restoreUI(state) {
-  if (state.phase === "scanning") {
-    //for now do nothing, really difficult to refresh on scanning phase
-  }
-
-  if (state.phase === "selection") {
+  switch (state.phase) {
+  case "scanning":
+    // Nothing to restore in scanning phase
+    break;
+  case "selection":
     console.log("Restoring selection UI...");
     renderSelectionUI();
-    renderFoundDevices(state.foundDevices);
-    markSelectedDevices(state.selectedDevices);
-  }
-
-  if (state.phase === "training") {
+    break;
+  case "training":
     console.log("Restoring training UI...");
     renderTrainingUI();
+    break;
+  default:
+    console.error("Invalid phase:", state.phase);
   }
 }
 
 
-function scrapeSelectedUsers() {
-  let selectedUsers = [];
+function scrapeSelectedDeviceIds() {
+  let selectedDeviceIds = [];
   //TODO really search in the table of found devices
     const table = document.getElementsByClassName("found-devices")[0];
     const rows = table.querySelectorAll("tr");
@@ -112,8 +136,8 @@ function scrapeSelectedUsers() {
         if (rowCheckbox.checked)
         {
           const deviceId = row.cells[0].textContent;
-          selectedUsers.push(parseInt(deviceId));
+          selectedDeviceIds.push(parseInt(deviceId));
         }
     });
-  return selectedUsers;
+  return selectedDeviceIds;
 }

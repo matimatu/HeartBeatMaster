@@ -52,7 +52,6 @@ export async function startAntManager() {
             let result = await checkForDeviceUsers(ids);
             displayResults(result);
             setPhase("selection");
-            console.log("\nwaiting for client to select devices...");
         });
 
     }, 2000);
@@ -72,8 +71,6 @@ export async function startAntManager() {
     hrScanner.on("attached", () => {
         console.log("scanner attached");
     });
-
-
 }
 
 
@@ -92,7 +89,7 @@ function sendToClient(obj) {
 
 export async function handleAppMessage(msg) {
   switch (msg.type) {
-    case "selectedDevices":
+    case "updateSelectedDevice":
         console.log("List of selected devices received from app:", msg.data);
         let result = await attachSelectedDevices(msg.data);
         if (result) {
@@ -230,11 +227,11 @@ function displayResults(result) {
         console.log("Device:", deviceId);
 
         if (info.userData) {
-            console.log("  Nome completo:", info.userData.nome, info.userData.cognome);
-            console.log("  Peso:", info.userData.peso);
-            console.log("  Altezza:", info.userData.altezza);
-            console.log("  Sesso:", info.userData.maschio === "1" ? "Maschio" : "Femmina");
-            sendToClient({ type: "deviceUserInfo", data: { deviceId, ...info.userData } });
+            console.log("  Username:", info.userData.nome, info.userData.cognome);
+            console.log("  Weight:", info.userData.peso);
+            console.log("  Height:", info.userData.altezza);
+            console.log("  Sex:", info.userData.maschio === "1" ? "Male" : "Female");
+            sendToClient({ type: "deviceUsersInfo", data: { deviceId, ...info.userData } });
         }
         else
         {
