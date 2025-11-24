@@ -1,4 +1,4 @@
-import { calcIntensity, calcHeartRateMax, getHeartRateMin } from "./statsHandler.js";
+import { calcIntensity, calcHeartRateMax, calcHeartRateMin } from "./statsHandler.js";
 const DEBUG = true;
 let clientState = {
   foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate }]               useful in scanning and selection phases
@@ -25,7 +25,7 @@ ws.onmessage = e => {
       break;
     case "deviceUsersInfo":
       renderTableUsersWithDevice(msg.data.deviceId,msg.data.nome,msg.data.cognome);
-      document.getElementById("button_startAttach").style.visibility = "visible";
+      document.getElementById("button_startAttach").style.display = "block";
       ws.send(JSON.stringify({ type: "updateFoundDevice", data: msg.data }));  //sending data to server
       break;
     case "currentState":
@@ -39,7 +39,7 @@ ws.onmessage = e => {
           clientState.selectedDevices = msg.data.selectedDevices;
           for(const selectedDevice of clientState.selectedDevices){
             selectedDevice.hrMax = calcHeartRateMax(selectedDevice.data_nascita);
-            selectedDevice.hrMin = getHeartRateMin(selectedDevice.maschio);
+            selectedDevice.hrMin = calcHeartRateMin(selectedDevice.maschio);
           }
           break;
         default:
@@ -70,23 +70,25 @@ function log(msg){
 };
 
 function renderTableUsersWithDevice(deviceId,nome,cognome){
+  const headerDiv = document.getElementById("found-devices-header");
+  headerDiv.style.display = "block";
   const table = document.getElementsByClassName("found-devices")[0];
-    const row = document.createElement("tr");
-    const cell1 = document.createElement("td");
-    cell1.textContent = deviceId;
+  const row = document.createElement("tr");
+  const cell1 = document.createElement("td");
+  cell1.textContent = deviceId;
 
-    const cell2 = document.createElement("td");
-    cell2.textContent = nome + " " + cognome;
-    const cell3 = document.createElement("td");
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = true;
-    cell3.appendChild(checkbox);
+  const cell2 = document.createElement("td");
+  cell2.textContent = nome + " " + cognome;
+  const cell3 = document.createElement("td");
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.checked = true;
+  cell3.appendChild(checkbox);
 
-    row.appendChild(cell1);
-    row.appendChild(cell2);
-    row.appendChild(cell3);
-    table.appendChild(row);
+  row.appendChild(cell1);
+  row.appendChild(cell2);
+  row.appendChild(cell3);
+  table.appendChild(row);
 };
 
 function renderDeviceStats(id, heartRate,age,weight,height) {
@@ -103,7 +105,7 @@ function renderDeviceStats(id, heartRate,age,weight,height) {
   if(selectedDevice){
     el.textContent = ((selectedDevice.nome && selectedDevice.cognome) ? selectedDevice.nome + " " + selectedDevice.cognome : "nome non trovato" + ": ");
     el.textContent += `: ${heartRate} bpm`;
-    el.textContent += ` - Intensità: ${calcIntensity(heartRate, calcHeartRateMax(selectedDevice.data_nascita), getHeartRateMin(selectedDevice.maschio))} %`;
+    el.textContent += ` - Intensità: ${calcIntensity(heartRate, selectedDevice.hrMax, selectedDevice.hrMin)} %`;
   }
 }
 
@@ -132,6 +134,7 @@ function scrapeSelectedDeviceIds() {
     const table = document.getElementsByClassName("found-devices")[0];
     const rows = table.querySelectorAll("tr");
     rows.forEach(row => {
+      if(row.rowIndex === 0) return; //skip header row
         const rowCheckbox = row.cells[2].querySelector("input[type='checkbox']");
         if (rowCheckbox.checked)
         {

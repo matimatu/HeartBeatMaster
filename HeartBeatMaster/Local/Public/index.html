@@ -1,17 +1,29 @@
 <!DOCTYPE html>
 <html lang="it">
-  <head>
-    <meta charset="UTF-8" />
-    <title>ANT+ Monitor</title>
-    <link href="style.css" rel="stylesheet" />
-  </head>
-  <body>
-    <h1>HeartBeat Manager</h1>
-    <div id="log"></div>
-    <table class="found-devices"></table>
-    <div id="devices"></div>
-    <button id="button_startAttach" style="visibility: hidden;">Collega device selezionati</button>
 
-    <script type="module" src="app.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <title>ANT+ Monitor</title>
+  <link href="style.css" rel="stylesheet" />
+</head>
+
+<body>
+  <h1>HEARTBEAT MANAGER</h1>
+  <div id="log"></div>
+  <h2 style="display: none;" id="found-devices-header" >Dispositivi trovati</h2>
+  <table class="found-devices">
+    <tr>
+    <th>DeviceID</th>
+    <th>Nome</th>
+    <th>Seleziona</th>
+  </tr>
+  </table>
+  
+  <div id="devices"></div>
+  <div class="btn-wrapper">
+    <button id="button_startAttach" style="display: none;">Collega device selezionati</button>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+
 </html>
