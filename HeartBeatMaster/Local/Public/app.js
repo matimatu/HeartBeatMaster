@@ -24,7 +24,7 @@ ws.onmessage = e => {
       renderDeviceStats(msg.data.DeviceId, msg.data.ComputedHeartRate);
       break;
     case "deviceUsersInfo":
-      renderTableUsersWithDevice(msg.data.deviceId,msg.data.nome,msg.data.cognome);
+      renderTableUsersWithDevice(msg.data.deviceId,msg.data.name,msg.data.surname);
       document.getElementById("button_startAttach").style.display = "block";
       ws.send(JSON.stringify({ type: "updateFoundDevice", data: msg.data }));  //sending data to server
       break;
@@ -38,8 +38,8 @@ ws.onmessage = e => {
         case "training":
           clientState.selectedDevices = msg.data.selectedDevices;
           for(const selectedDevice of clientState.selectedDevices){
-            selectedDevice.hrMax = calcHeartRateMax(selectedDevice.data_nascita);
-            selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sesso);
+            selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthdate);
+            selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sex);
           }
           break;
         default:
@@ -103,7 +103,7 @@ function renderDeviceStats(id, heartRate,age,weight,height) {
   }
   const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
   if(selectedDevice){
-    el.textContent = ((selectedDevice.nome && selectedDevice.cognome) ? selectedDevice.nome + " " + selectedDevice.cognome : "nome non trovato" + ": ");
+    el.textContent = ((selectedDevice.name && selectedDevice.surname) ? selectedDevice.name + " " + selectedDevice.surname : "nome non trovato" + ": ");
     el.textContent += `: ${heartRate} bpm`;
     el.textContent += ` - Intensità: ${calcIntensity(heartRate, selectedDevice.hrMax, selectedDevice.hrMin)} %`;
   }

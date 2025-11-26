@@ -11,7 +11,7 @@ const wss = new WebSocketServer({ server });
 
 const serverState = {
   phase: "scanning",  // "scanning" | "selection" | "training"
-  foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate }]               useful in scanning and selection phases
+  foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate, sex }]               useful in scanning and selection phases
   selectedDevices: [] // [{ deviceId, name, surname, weight, birthdate,hrMax, hrMin }]  useful in training phase
 };
 
@@ -40,7 +40,15 @@ wss.on("connection", (ws) => {
         console.log("Server-> message received from client:", msg);
       switch (msg.type) {
         case "updateFoundDevice":
-          serverState.foundDevices.push(msg.data);
+          serverState.foundDevices.push({
+                deviceId: msg.data.deviceId,
+                name: msg.data.name,
+                surname: msg.data.surname,
+                weight: msg.data.weight,
+                height: msg.data.height,
+                birthdate: msg.data.birthdate,
+                sex: msg.data.sex,
+          });
           console.log("Server->Updated found devices:", serverState.foundDevices);
           console.log("\nwaiting for client to select devices...");
           break;
@@ -54,12 +62,12 @@ wss.on("connection", (ws) => {
               if(DEBUG) console.log(`Server->found id that matches: ${selectedId}`);
               serverState.selectedDevices.push({
                 deviceId: foundDev.deviceId,
-                nome: foundDev.nome,
-                cognome: foundDev.cognome,
-                peso: foundDev.peso,
-                altezza: foundDev.altezza,
-                data_nascita: foundDev.data_nascita,
-                sesso: foundDev.sesso,
+                name: foundDev.name,
+                surname: foundDev.surname,
+                weight: foundDev.weight,
+                height: foundDev.height,
+                birthdate: foundDev.birthdate,
+                sex: foundDev.sex,
               });
             }
           }
@@ -95,7 +103,7 @@ export function setPhase(newPhase) {
   }
   serverState.phase = newPhase;
   sendStateToClient(clientSocket);
-   if (DEBUG)       console.log("Server->Phase set to" + newPhase +" , state sent to client.");
+   if (DEBUG)       console.log("Server->Phase set to " + newPhase +" , state sent to client.");
 }
 
 function sendStateToClient(ws) {

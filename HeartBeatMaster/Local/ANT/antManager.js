@@ -223,15 +223,23 @@ async function attachToDevice(channel, deviceId) {
 
 function displayResults(result) {
     console.log("\nResults:");
-    for (const [deviceId, info] of Object.entries(result)) {
+    for (const [deviceId, data] of Object.entries(result)) {
         console.log("Device:", deviceId);
 
-        if (info.userData) {
-            console.log("  Username:", info.userData.nome, info.userData.cognome);
-            console.log("  Weight:", info.userData.peso);
-            console.log("  Height:", info.userData.altezza);
-            console.log("  Sex:", info.userData.maschio === "1" ? "Male" : "Female");
-            sendToClient({ type: "deviceUsersInfo", data: { deviceId, ...info.userData } });
+        if (data.userData) {
+            console.log("  Username:", data.userData.nome, data.userData.cognome);
+            console.log("  Weight:", data.userData.peso);
+            console.log("  Height:", data.userData.altezza);
+            console.log("  Sex:", data.userData.sesso === "male" ? "male" : "female");
+            const info = {
+                name: data.userData.nome,
+                surname: data.userData.cognome,
+                weight: data.userData.peso,
+                height: data.userData.altezza,
+                birthdate: data.userData.data_nascita,
+                sex: data.userData.sesso,
+            };                
+            sendToClient({ type: "deviceUsersInfo", data: { deviceId, ...info} });//the ... dismembers the info struct
         }
         else
         {
