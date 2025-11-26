@@ -11,26 +11,28 @@ export function calcHeartRateMax(bornDate) {
   return 208 -0.7*age;
 }
 
-export function calcHeartRateMin(male) {
-  if(String(male)==="1"){
+export function calcHeartRateMin(sex) {
+  sex = sex.toLowerCase();
+  if(sex === "male"){
     return 0.64;
-  } else if(String(male)==="0"){
+  } else if(sex === "female"){
     return 0.76;
   }
   else
   {
-    throw new Error("Invalid value for sex parameter: "+ male);
+    throw new Error("Invalid value for sex parameter: "+ sex);
   }
 }
 
-export function calcCaloriesBurnedPerMin(male,weightKg, avgHeartRate, age) {
+export function calcCaloriesBurnedPerMin(sex,weightKg, avgHeartRate, age) {
   let calories;
-  if(String(male) === "0")
+  sex = sex.toLowerCase();
+  if( sex === "male")
     calories = ((-55.0969 + (0.6309 * avgHeartRate) + (0.1988 * weightKg) + (0.2017 * age)) / 4.184);
-  else if (String(male) === "1")
+  else if (sex === "female")
     calories = ((-20.4022 + (0.4472 * avgHeartRate) - (0.1263 * weightKg) + (0.074 * age)) / 4.184);
   else
-    throw new Error("Invalid value for male parameter: "+ male);
+    throw new Error("Invalid value for sex parameter: "+ sex);
   return calories.toFixed(2);
 }
 

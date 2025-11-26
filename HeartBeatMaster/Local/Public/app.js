@@ -39,7 +39,7 @@ ws.onmessage = e => {
           clientState.selectedDevices = msg.data.selectedDevices;
           for(const selectedDevice of clientState.selectedDevices){
             selectedDevice.hrMax = calcHeartRateMax(selectedDevice.data_nascita);
-            selectedDevice.hrMin = calcHeartRateMin(selectedDevice.maschio);
+            selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sesso);
           }
           break;
         default:

@@ -87,11 +87,14 @@ try {
     // Query: join fasce -> fascePerUtenti -> utenti
     $sql = "SELECT f.".$fasce_chiave__COLUMN." AS device_id,
                    u.".$utenti_ID__COLUMN." AS user_id, u.".$utenti_nome__COLUMN.", u.".$utenti_cognome__COLUMN.",
-                   u.".$utenti_data_nascita__COLUMN.", u.".$utenti_altezza__COLUMN.", u.".$utenti_peso__COLUMN.",u.".$utenti_maschio__COLUMN."
-            FROM " . $fasce__TABLE . " f
-            JOIN " . $fascePerUtenti__TABLE . " fp ON fp.".$fascePerUtenti_ID_fascia__COLUMN." = f.".$fascePerUtenti_ID__COLUMN."
-            JOIN ". $utenti__TABLE ." u ON u.".$utenti_ID__COLUMN." = fp.".$fascePerUtenti_ID_utente__COLUMN."
+                   u.".$utenti_data_nascita__COLUMN.", u.".$utenti_sesso__COLUMN.",
+                   dmu.".$datiMonitoraggioUtenti_altezza__COLUMN.", dmu.".$datiMonitoraggioUtenti_peso__COLUMN." 
+            FROM " . $fasce__TABLE ." f
+            JOIN " . $fascePerUtenti__TABLE ." fp ON fp.".$fascePerUtenti_ID_fascia__COLUMN." = f.".$fascePerUtenti_ID__COLUMN."
+            JOIN " . $datiMonitoraggioUtenti__TABLE ." dmu ON dmu.".$datiMonitoraggioUtenti_ID__COLUMN." = fp.".$fascePerUtenti_ID_datimonitoraggioutente__COLUMN."
+            JOIN " . $utenti__TABLE ." u ON u.".$utenti_ID__COLUMN. " = dmu.".$datiMonitoraggioUtenti_ID_utente__COLUMN."
             WHERE f.".$fasce_chiave__COLUMN." IN ($placeholders)";
+    if($DEBUG) echo("query sql: \n".$sql);
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deviceIds);
@@ -105,21 +108,21 @@ try {
 
     // Fill with found users. If multiple rows per device exist, this keeps the first one encountered.
     foreach ($rows as $row) {
-        $did = (string)$row['device_id'];
-        if (!isset($results[$did]) || $results[$did]['registered'] === true) {
+        $deviceId = (string)$row['device_id'];
+        if (!isset($results[$deviceId]) || $results[$deviceId]['registered'] === true) {
             // If already set (duplicate), skip //TODO: handle duplicates better and create a array of users?
             continue;
         }
-        $results[$did] = [
+        $results[$deviceId] = [
             'registered' => true,
             'user' => [
                 'id' => $row['user_id'],
                 'nome' => $row['nome'] ?? null,
                 'cognome' => $row['cognome'] ?? null,
                 'data_nascita' => $row['data_nascita'] ?? null,
+                'sesso' => $row['sesso'] ?? null,
                 'altezza' => $row['altezza'] ?? null,
                 'peso' => $row['peso'] ?? null,
-                'maschio' => $row['maschio'] ?? null,
             ],
         ];
     }

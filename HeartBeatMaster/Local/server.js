@@ -59,9 +59,7 @@ wss.on("connection", (ws) => {
                 peso: foundDev.peso,
                 altezza: foundDev.altezza,
                 data_nascita: foundDev.data_nascita,
-                maschio: foundDev.maschio,
-                // hrMax: calcHeartRateMax(foundDev.data_nascita),
-                // hrMin: getHeartRateMin(foundDev.maschio)
+                sesso: foundDev.sesso,
               });
             }
           }
