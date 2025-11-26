@@ -24,6 +24,7 @@ $utenti__TABLE = 'utenti';
     $utenti_nome__COLUMN = 'nome';
     $utenti_cognome__COLUMN = 'cognome';
     $utenti_mail__COLUMN = 'mail';
+    $utenti_password__COLUMN = 'password';
     $utenti_data_nascita__COLUMN = 'data_nascita';
     $utenti_sesso__COLUMN = 'sesso';
 
