@@ -23,7 +23,7 @@ if (!is_array($data) ||     !isset($data['device_id']) ||    !isset($data['mail'
 
     http_response_code(400);
     echo json_encode(['success' => false,
-         'error' => 'Invalid payload. Expected an array with this fields: { device_id,mail,password,weight,height" }']);
+         'error' => 'Invalid payload. Expected an array with this fields: { device_id,mail,password,weight,height }']);
     exit;
 }
 if(!is_string($data['device_id']) || !is_string($data['mail']) 
@@ -31,12 +31,12 @@ if(!is_string($data['device_id']) || !is_string($data['mail'])
 {
     http_response_code(400);
     echo json_encode(['success' => false,
-         'error' => 'Invalid payload. Expected an array with this fields: { device_id,mail,password,weight,height" }']);
+         'error' => 'Invalid payload. Expected an array with this fields: { device_id,mail,password,weight,height }']);
     exit;
 }
 $deviceId = strval($data['device_id']);
-$mail = trim($data['name']);
-$password = trim($data['surname']);
+$mail = trim($data['mail']);
+$password = trim($data['password']);
 $weight = trim($data['weight']);
 $height = trim($data['height']);
 
@@ -59,7 +59,7 @@ try {
                 LIMIT 1";
 
     $stmt = $pdo->prepare($sqlUser);
-    $stmt->execute([$mail, $surname]);
+    $stmt->execute([$mail, $password]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$user) {
@@ -114,7 +114,7 @@ try {
 
     // 5) --- INSERT INTO fascePerUtenti ---
     $sqlInsertLink = "INSERT INTO ".$fascePerUtenti__TABLE."
-                      (".$fascePerUtenti_ID_fascia__COLUMN.", ".$fascePerUtenti_ID_utente__COLUMN.")
+                      (".$fascePerUtenti_ID_fascia__COLUMN.", ".$fascePerUtenti_ID_datimonitoraggioutente__COLUMN.")
                       VALUES (?, ?)";
 
     $stmt = $pdo->prepare($sqlInsertLink);
@@ -132,6 +132,7 @@ try {
             'weight' => $weight,
             'height' => $height,
             'birthDate' => $userBirthdate,
+            'sex' => $userSex,
         ]
     ]);
 
