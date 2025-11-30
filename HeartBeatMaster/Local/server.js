@@ -11,7 +11,7 @@ const wss = new WebSocketServer({ server });
 
 const serverState = {
   phase: "scanning",  // "scanning" | "selection" | "training"
-  foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate, sex }]               useful in scanning and selection phases
+  foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthdate, sex }]               useful in scanning and selection phases
   selectedDevices: [] // [{ deviceId, name, surname, weight, birthdate,hrMax, hrMin }]  useful in training phase
 };
 
@@ -40,15 +40,27 @@ wss.on("connection", (ws) => {
         console.log("Server-> message received from client:", msg);
       switch (msg.type) {
         case "updateFoundDevice":
-          serverState.foundDevices.push({
-                deviceId: msg.data.deviceId,
-                name: msg.data.name,
-                surname: msg.data.surname,
-                weight: msg.data.weight,
-                height: msg.data.height,
-                birthdate: msg.data.birthdate,
-                sex: msg.data.sex,
+          if(msg.data.registered === true)
+          {
+            serverState.foundDevices.push({
+              registered: msg.data.registered,
+              deviceId: msg.data.deviceId,
+              name: msg.data.name,
+              surname: msg.data.surname,
+              weight: msg.data.weight,
+              height: msg.data.height,
+              birthdate: msg.data.birthdate,
+              sex: msg.data.sex,
           });
+          }
+          else  if(msg.data.registered === false)
+          {
+             serverState.foundDevices.push({
+              registered: msg.data.registered,
+              deviceId: msg.data.deviceId,
+            });
+          }
+
           console.log("Server->Updated found devices:", serverState.foundDevices);
           console.log("\nwaiting for client to select devices...");
           break;

@@ -1,6 +1,6 @@
 
 import * as Ant from "ant-plus-next";
-import { queryDeviceOwners } from "../phpConnector.js";
+import { queryDeviceOwners } from "../Public/phpConnector.js";
 import { setPhase } from "../server.js";
 
 let stick = null;
@@ -232,6 +232,7 @@ function displayResults(result) {
             console.log("  Height:", data.userData.altezza);
             console.log("  Sex:", data.userData.sesso === "male" ? "male" : "female");
             const info = {
+                registered: true,
                 name: data.userData.nome,
                 surname: data.userData.cognome,
                 weight: data.userData.peso,
@@ -244,6 +245,8 @@ function displayResults(result) {
         else
         {
             console.log("  No user data associated with this device.");
+            const registered = false;
+            sendToClient({ type: "deviceUsersInfo", data: { deviceId, registered} });
         }
     }
 }

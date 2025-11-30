@@ -23,7 +23,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 	}
 
 	if (deviceIds.length === 0) return {};
-	if(timeoutMs == null || timeoutMs == 0) timeoutMs = 5000;
+	if (timeoutMs == null || timeoutMs == 0) timeoutMs = 5000;
 	const url = 'http://localhost/HeartBeatMaster/OnlineSite/API/device-registration-status.php';
 	let fetchImpl = (typeof fetch !== 'undefined' ? fetch : null);
 
@@ -47,7 +47,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 		: null;
 
 	let resp;
-	if(DEBUG)
+	if (DEBUG)
 		console.log("Sending request to", url, "with body", body);
 	try {
 		resp = await fetchImpl(url, {
@@ -80,7 +80,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 
 	// Normalize response into map: deviceId -> username|null
 	const result = {};
-	if(DEBUG)
+	if (DEBUG)
 		console.log("response raw json: ", data);
 	if (data && typeof data === 'object' && !Array.isArray(data)) {
 		// Handle the API response format: { success: true, data: { deviceId: { registered, user } } }
@@ -141,5 +141,126 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 	throw new Error('Unexpected API response format: ' + JSON.stringify(data));
 }
 
-export default queryDeviceOwners;
+export async function registerNewDevice(deviceId, mail, password, weight, height, timeoutMs) {
+	// Validate input types
+	if (deviceId == null) throw new TypeError("deviceId must be provided");
+	if (mail == null) throw new TypeError("mail must be provided");
+	if (password == null) throw new TypeError("password must be provided");
+	if (weight == null) throw new TypeError("weight must be provided");
+	if (height == null) throw new TypeError("height must be provided");
 
+	if (timeoutMs == null || timeoutMs === 0) timeoutMs = 5000;
+
+	const url = 'http://localhost/HeartBeatMaster/OnlineSite/API/device-registration.php';
+
+	// Determine available fetch implementation (Browser fetch or node-fetch)
+	let fetchImpl = (typeof fetch !== 'undefined' ? fetch : null);
+	if (!fetchImpl) {
+		try {
+			// Dynamic import for node-fetch (ES module)
+			const mod = await import('node-fetch');
+			fetchImpl = mod.default || mod;
+		} catch (err) {
+			throw new Error('No fetch available. Use Node 18+ or install node-fetch.');
+		}
+	}
+
+	// Setup AbortController to handle timeout
+	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+	const signal = controller ? controller.signal : undefined;
+
+	// Build the JSON payload for the API
+	const body = JSON.stringify({
+		device_id: deviceId,
+		mail,
+		password,
+		weight,
+		height
+	});
+
+	// Start timeout timer if AbortController is supported
+	const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+	let resp;
+	try {
+		// Perform the POST request
+		resp = await fetchImpl(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body,
+			signal
+		});
+	} catch (err) {
+		// Distinguish between timeout vs other fetch errors
+		if (err.name === 'AbortError') {
+			throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+		}
+		throw err;
+	} finally {
+		// Always clear the timeout timer
+		if (timer) clearTimeout(timer);
+	}
+
+	// Handle HTTP errors
+	if (!resp.ok) {
+		// Case 404 → NOT AN ERROR for this API → return structured result
+		if (resp.status === 404) {
+			return {
+				success: false,
+				message: "User not found... retry!",
+				data: null,
+				httpStatus: 404
+			};
+		}
+
+		// Other error codes → throw
+		const text = await resp.text().catch(() => '');
+		throw new Error(`API request failed: ${resp.status} ${resp.statusText} ${text}`);
+	}
+
+	// Parse JSON response with fallback to text on failure
+	let data;
+	try {
+		data = await resp.json();
+	} catch (err) {
+		const txt = await resp.text().catch(() => '');
+		throw new Error('Failed to parse JSON from API response: ' + txt + "\n" + err.message);
+	}
+
+	/*
+	   Expected API response formats typically look like:
+
+	   {
+		 "success": true,
+		 "message": "...",
+		 "data": { ... }   // optional
+	   }
+
+	   This function normalizes the result and returns an object:
+	   {
+		 success: boolean,
+		 message: string|null,
+		 data: object|null
+	   }
+	*/
+
+	// Normalize the response
+	let result = {
+		success: false,
+		message: null,
+		data: null
+	};
+
+	if (data && typeof data === 'object') {
+		// Extract common API fields
+		result.success = Boolean(data.success);
+		result.message = data.message ?? null;
+		result.data = data.data ?? null;
+	} else {
+		throw new Error('Unexpected API response format: ' + JSON.stringify(data));
+	}
+
+	return result;
+}
+
+// export default queryDeviceOwners;
