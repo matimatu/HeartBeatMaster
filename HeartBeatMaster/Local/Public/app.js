@@ -26,7 +26,7 @@ ws.onmessage = e => {
       renderDeviceStats(msg.data.DeviceId, msg.data.ComputedHeartRate);
       break;
     case "deviceUsersInfo":
-      renderTableUsersWithDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
+      renderFoundDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
       document.getElementById("button_startAttach").style.display = "block";
       sendToServer({ type: "updateFoundDevice", data: msg.data });
       break;
@@ -41,6 +41,7 @@ ws.onmessage = e => {
           break;
         case "training":
           clientState.selectedDevices = msg.data.selectedDevices;
+          //calculating hrMax and hrMin for all selectedDevices one time
           for (const selectedDevice of clientState.selectedDevices) {
             selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthDate);
             selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sex);
@@ -52,7 +53,7 @@ ws.onmessage = e => {
       }
       if (DEBUG)
         console.log("clientState updated:", clientState, msg.data.phase);
-      // restoreUI(msg.data);   //TODO handle restoration of UI based on current state
+      restoreUI(msg.data);   //TODO handle restoration of UI based on current state
       break;
     default:
       log(`message type not recognised: ${JSON.stringify(msg)}`);
@@ -60,18 +61,18 @@ ws.onmessage = e => {
 };
 
 //////////////////////////////////////// EVENT LISTENERS ////////////////////////////////////////////
-document.getElementById("button_startAttach").addEventListener("click", () => {
-  let selectedDeviceIds = scrapeSelectedDeviceIds();
-  console.log("Sending selected devices to server...");
-  sendToServer({type: "ANT_updateSelectedDevice", data: selectedDeviceIds});  //sending data to server which forward to ANT Manager
-});
+// document.getElementById("button_startAttach").addEventListener("click", () => {
+//   let selectedDeviceIds = scrapeSelectedDeviceIds();
+//   console.log("Sending selected devices to server...");
+//   sendToServer({ type: "ANT_updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
+// });
 
 
 /////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
 function sendToServer(obj) {
   if (ws && ws.readyState === ws.OPEN) {
     ws.send(JSON.stringify(obj));
-    if(DEBUG) console.log(`message sent to server:${JSON.stringify(obj)}`)
+    if (DEBUG) console.log(`message sent to server:${JSON.stringify(obj)}`)
   }
   else
     console.error("\nws error, unable to send message to server!");
@@ -82,10 +83,40 @@ function log(msg) {
   el.innerHTML += `<div>${msg}</div>`;
 };
 
-function renderTableUsersWithDevice(isRegistered, deviceId, nome, cognome) {
-  const headerDiv = document.getElementById("found-devices-header");
-  headerDiv.style.display = "block";
-  const table = document.getElementsByClassName("found-devices")[0];
+function renderFoundDevice(isRegistered, deviceId, nome, cognome) {
+
+  let header = document.getElementById("found-devices-header");
+  if (!header) { //if header doesn't exist -> create it
+    header = document.createElement("h2");
+    header.id = "found-devices-header";
+    // header.style.display = "block"; 
+    header.textContent = "Dispositivi trovati";
+    const devicesDiv = document.getElementById("devices");
+    devicesDiv.insertAdjacentElement("beforebegin", header);
+  }
+  let table = document.querySelector(".found-devices");
+  if (!table) { //if table doesn't exist -> create it
+    table = document.createElement("table");
+    table.className = "found-devices table-popup";
+
+    // Crea l'header della tabella
+    const headerRow = document.createElement("tr");
+    const headers = ["DeviceID", "Nome", "Seleziona"];
+    headers.forEach(text => {
+      const th = document.createElement("th");
+      th.textContent = text;
+      headerRow.appendChild(th);
+    });
+
+    table.appendChild(headerRow);
+
+    // insert table on DOM under div or h2 header
+    header.insertAdjacentElement("afterend", table);
+
+    setTimeout(() => {
+      table.classList.add("show");
+    }, 50); // 50ms to let the transition happen
+  }
   const row = document.createElement("tr");
   const cell1 = document.createElement("td");
   cell1.textContent = deviceId;
@@ -116,7 +147,36 @@ function renderTableUsersWithDevice(isRegistered, deviceId, nome, cognome) {
   row.appendChild(cell2);
   row.appendChild(cell3);
   table.appendChild(row);
+  renderStartAttachButton();
 };
+
+function renderStartAttachButton() {
+  let btnWrapper = document.querySelector(".btn-wrapper");
+  if (!btnWrapper) {
+    btnWrapper = document.createElement("div");
+    btnWrapper.className = "btn-wrapper btn-popup";
+
+    const button = document.createElement("button");
+    button.id = "button_startAttach";
+    button.textContent = "Collega device selezionati";
+    button.style.display = "none";
+
+    button.addEventListener("click", () => {
+      let selectedDeviceIds = scrapeSelectedDeviceIds();
+      console.log("Sending selected devices to server...");
+      sendToServer({ type: "ANT_updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
+    });
+
+    btnWrapper.appendChild(button);
+    document.body.appendChild(btnWrapper);
+    setTimeout(() => {
+      btnWrapper.classList.add("show");
+    }, 200);
+  }
+
+  return document.getElementById("button_startAttach"); // ritorna il bottone per poterlo mostrare/nascondere
+}
+
 
 function renderDeviceStats(id, heartRate, age, weight, height) {
   if (id === 0) return; //ignore wildcard id
@@ -142,16 +202,40 @@ function restoreUI(state) {//TODO
       // Nothing to restore in scanning phase
       break;
     case "selection":
-      console.log("Restoring selection UI...");
-      renderSelectionUI();
+      // if(DEBUG) console.log("Restoring selection UI...");
+      // renderSelectionUI();
       break;
     case "training":
-      console.log("Restoring training UI...");
+      if (DEBUG) console.log("Restoring training UI...");
       renderTrainingUI();
       break;
     default:
       console.error("Invalid phase:", state.phase);
   }
+}
+
+function renderTrainingUI() {
+  const headerFoundDevices = document.getElementById("found-devices-header");
+  if (!headerFoundDevices) {
+    console.error("headerFoundDevices not found!");
+    return;
+  }
+  headerFoundDevices.style.display = "none";
+
+  const tableFoundDevices = document.querySelector(".found-devices");
+  if (!tableFoundDevices) {
+    console.error("tableFoundDevices not found!");
+    return;
+  }
+  tableFoundDevices.remove();
+
+  let btnWrapper = document.querySelector(".btn-wrapper");
+  if (!btnWrapper) {
+     console.error("btnWrapper not found!");
+    return;
+  }
+  btnWrapper.remove();
+  if(DEBUG) console.log("training UI updated");
 }
 
 
@@ -206,7 +290,7 @@ function button_registraOnClick(event) {
       cell.appendChild(checkbox);
       const nameCell = row.cells[1];
       nameCell.textContent = result.data.name + " " + result.data.surname;
-      sendToServer({ type: "updateFoundDevice", data: { deviceId,...result.data }});
+      sendToServer({ type: "updateFoundDevice", data: { deviceId, ...result.data } });
     }
 
   });

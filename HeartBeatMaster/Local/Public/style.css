@@ -32,6 +32,19 @@ table {
   color: #343a40;
 }
 
+/* table animation */
+.table-popup {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.table-popup.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+
 thead {
   background: #f5f5f5;
 }
@@ -86,7 +99,19 @@ button:disabled {
   box-shadow: none;
 }
 
-/* POPUP */
+.btn-popup {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.btn-popup.show {
+  opacity: 1;
+  transform: scale(1);
+}
+
+
+/* REGISTRATION POPUP */
 .popup-overlay {
   position: fixed;
   top: 0;
