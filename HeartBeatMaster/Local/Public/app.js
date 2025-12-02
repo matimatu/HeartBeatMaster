@@ -3,8 +3,8 @@ import { registerNewDevice } from "./phpConnector.js";
 
 const DEBUG = true;
 let clientState = {
-  foundDevices: [],   // [{ deviceId, name, surname, weight, birthdate }]               useful in scanning and selection phases
-  selectedDevices: [] // [{ deviceId, name, surname, weight, birthdate,hrMax, hrMin }]  useful in training phase
+  foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate }]               useful in scanning and selection phases
+  selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin }]  useful in training phase
 };
 const ws = new WebSocket(`ws://${location.host}`);
 
@@ -28,19 +28,21 @@ ws.onmessage = e => {
     case "deviceUsersInfo":
       renderTableUsersWithDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
       document.getElementById("button_startAttach").style.display = "block";
-      ws.send(JSON.stringify({ type: "updateFoundDevice", data: msg.data }));  //sending data to server
+      sendToServer({ type: "updateFoundDevice", data: msg.data });
       break;
     case "currentState":
       switch (msg.data.phase) {
         case "scanning":
           break;
         case "selection":
+          console.log("found devices from server: ");
+          console.log(msg);
           clientState.foundDevices = msg.data.foundDevices;
           break;
         case "training":
           clientState.selectedDevices = msg.data.selectedDevices;
           for (const selectedDevice of clientState.selectedDevices) {
-            selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthdate);
+            selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthDate);
             selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sex);
           }
           break;
@@ -61,11 +63,20 @@ ws.onmessage = e => {
 document.getElementById("button_startAttach").addEventListener("click", () => {
   let selectedDeviceIds = scrapeSelectedDeviceIds();
   console.log("Sending selected devices to server...");
-  ws.send(JSON.stringify({ type: "updateSelectedDevice", data: selectedDeviceIds }));  //sending data to server which foward to ANT Manager
+  sendToServer({type: "ANT_updateSelectedDevice", data: selectedDeviceIds});  //sending data to server which forward to ANT Manager
 });
 
 
 /////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
+function sendToServer(obj) {
+  if (ws && ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify(obj));
+    if(DEBUG) console.log(`message sent to server:${JSON.stringify(obj)}`)
+  }
+  else
+    console.error("\nws error, unable to send message to server!");
+}
+
 function log(msg) {
   const el = document.getElementById("log");
   el.innerHTML += `<div>${msg}</div>`;
@@ -179,16 +190,23 @@ function button_registraOnClick(event) {
       const errorDiv = box.querySelector(".popup-api-error");
       if (!errorDiv) return;
 
-      
       if (result.httpStatus === 404) {
         errorDiv.textContent = result.message;
         errorDiv.style.display = "block";
       }
-
-
     }
     else if (result.success === true) {
-        //TODO
+      const overlay = document.querySelector("#device-reg-popup");
+      overlay.remove();
+      const cell = button.parentElement;
+      cell.removeChild(button);
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = true;
+      cell.appendChild(checkbox);
+      const nameCell = row.cells[1];
+      nameCell.textContent = result.data.name + " " + result.data.surname;
+      sendToServer({ type: "updateFoundDevice", data: { deviceId,...result.data }});
     }
 
   });
@@ -220,7 +238,7 @@ function showRegistrationPopup(onSubmitCallback) {
   closeBtn.textContent = "✕";
   closeBtn.onclick = () => overlay.remove();
   box.appendChild(closeBtn);
-  
+
 
   // Form
   const form = document.createElement("form");
@@ -279,7 +297,5 @@ function showRegistrationPopup(onSubmitCallback) {
     };
 
     if (onSubmitCallback) onSubmitCallback(data);
-
-    // overlay.remove();
   };
 }

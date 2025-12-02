@@ -11,10 +11,9 @@ const wss = new WebSocketServer({ server });
 
 const serverState = {
   phase: "scanning",  // "scanning" | "selection" | "training"
-  foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthdate, sex }]               useful in scanning and selection phases
-  selectedDevices: [] // [{ deviceId, name, surname, weight, birthdate,hrMax, hrMin }]  useful in training phase
+  foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
+  selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin }]  useful in training phase
 };
-
 
 app.use(express.static("public"));
 
@@ -40,8 +39,13 @@ wss.on("connection", (ws) => {
         console.log("Server-> message received from client:", msg);
       switch (msg.type) {
         case "updateFoundDevice":
-          if(msg.data.registered === true)
-          {
+          if (msg.data.registered === true) {
+            const index = serverState.foundDevices.findIndex(d => d.deviceId === msg.data.deviceId && d.registered === false);
+            if (index !== -1) {
+              serverState.foundDevices.splice(index, 1);
+              if(DEBUG) console.log("Server->new device registered, removed old unknown device")
+            }
+
             serverState.foundDevices.push({
               registered: msg.data.registered,
               deviceId: msg.data.deviceId,
@@ -49,36 +53,35 @@ wss.on("connection", (ws) => {
               surname: msg.data.surname,
               weight: msg.data.weight,
               height: msg.data.height,
-              birthdate: msg.data.birthdate,
+              birthDate: msg.data.birthDate,
               sex: msg.data.sex,
-          });
+            });
           }
-          else  if(msg.data.registered === false)
-          {
-             serverState.foundDevices.push({
+          else if (msg.data.registered === false) {
+            serverState.foundDevices.push({
               registered: msg.data.registered,
               deviceId: msg.data.deviceId,
             });
           }
 
           console.log("Server->Updated found devices:", serverState.foundDevices);
-          console.log("\nwaiting for client to select devices...");
+          console.log("\nServer->waiting for client to select devices...");
           break;
-        case "updateSelectedDevice":
-          console.log(`Server->data received on updateSelectedDevice: ${msg.data}`);
+        case "ANT_updateSelectedDevice":
+          if(DEBUG) console.log(`Server->data received on updateSelectedDevice: ${msg.data}`);
           for (const selectedId of msg.data) {
-            if(DEBUG) console.log(`Server->selected id: ${selectedId}`);
+            if (DEBUG) console.log(`Server->selected id: ${selectedId}`);
             const selectedIdStr = String(selectedId);
             const foundDev = serverState.foundDevices.find(d => d.deviceId === selectedIdStr);
             if (foundDev) {
-              if(DEBUG) console.log(`Server->found id that matches: ${selectedId}`);
+              if (DEBUG) console.log(`Server->found id that matches into foundDevices: ${selectedId}`);
               serverState.selectedDevices.push({
                 deviceId: foundDev.deviceId,
                 name: foundDev.name,
                 surname: foundDev.surname,
                 weight: foundDev.weight,
                 height: foundDev.height,
-                birthdate: foundDev.birthdate,
+                birthDate: foundDev.birthDate,
                 sex: foundDev.sex,
               });
             }
@@ -114,8 +117,8 @@ export function setPhase(newPhase) {
       return;
   }
   serverState.phase = newPhase;
+  if (DEBUG) console.log("Server->Phase set to " + newPhase + " , sending state to client...");
   sendStateToClient(clientSocket);
-   if (DEBUG)       console.log("Server->Phase set to " + newPhase +" , state sent to client.");
 }
 
 function sendStateToClient(ws) {
@@ -123,6 +126,7 @@ function sendStateToClient(ws) {
     type: "currentState",
     data: serverState
   }));
+  if(DEBUG) console.log(`Server -> sent state to client: ${JSON.stringify({serverState})}`)
 }
 
 

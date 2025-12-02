@@ -49,7 +49,7 @@ export async function startAntManager() {
             console.log("scanner detached");
             sendToClient({ type: "scanResult", data: ids });
 
-            let result = await checkForDeviceUsers(ids);
+            let result = await checkForDeviceUsers(ids);        //TODO handle site connection error
             displayResults(result);
             setPhase("selection");
         });
@@ -84,12 +84,13 @@ export function setWsConnection(ws) {
 function sendToClient(obj) {
   if (wsClient && wsClient.readyState === wsClient.OPEN) {
     wsClient.send(JSON.stringify(obj));
+    if(DEBUG) console.log("ANT-> send to client",obj)
   }
 }
 
 export async function handleAppMessage(msg) {
   switch (msg.type) {
-    case "updateSelectedDevice":
+    case "ANT_updateSelectedDevice":
         console.log("List of selected devices received from app:", msg.data);
         let result = await attachSelectedDevices(msg.data);
         if (result) {
@@ -237,7 +238,7 @@ function displayResults(result) {
                 surname: data.userData.cognome,
                 weight: data.userData.peso,
                 height: data.userData.altezza,
-                birthdate: data.userData.data_nascita,
+                birthDate: data.userData.data_nascita,
                 sex: data.userData.sesso,
             };                
             sendToClient({ type: "deviceUsersInfo", data: { deviceId, ...info} });//the ... dismembers the info struct

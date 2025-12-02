@@ -127,6 +127,7 @@ try {
         'success' => true,
         'message' => 'Device registered successfully',
         'data' => [
+            'registered' => true,
             'name' => $userName,
             'surname' => $userSurname,
             'weight' => $weight,
