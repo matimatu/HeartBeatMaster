@@ -86,7 +86,7 @@ wss.on("connection", (ws) => {
               });
             }
           }
-          console.log("Server->Updated selected devices:", serverState.selectedDevices);
+          if (DEBUG)console.log("Server->Updated selected devices:", serverState.selectedDevices);
           console.log("Server->Forwarding message to ANT Manager...");
           handleAppMessage(msg);
           break;

@@ -8,19 +8,19 @@ let clientState = {
 };
 const ws = new WebSocket(`ws://${location.host}`);
 
-ws.onopen = () => log("Connesso al server");
+if(DEBUG) ws.onopen = () => log("Connesso al server");
 
 ws.onmessage = e => {
   const msg = JSON.parse(e.data);
   switch (msg.type) {
     case "newSensor":
-      log(`Nuovo sensore trovato: ${msg.data.DeviceId}`);
+      if(DEBUG) log(`Nuovo sensore trovato: ${msg.data.DeviceId}`);
       break;
     case "scanResult":
-      log(`Scansione completata (${Object.keys(msg.data).length} dispositivi trovati)`);
+      if(DEBUG) log(`Scansione completata (${Object.keys(msg.data).length} dispositivi trovati)`);
       break;
     case "UserDevice_attached":
-      log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
+      if(DEBUG) log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
       break;
     case "heartRate":
       renderDeviceStats(msg.data.DeviceId, msg.data.ComputedHeartRate);
@@ -35,8 +35,7 @@ ws.onmessage = e => {
         case "scanning":
           break;
         case "selection":
-          console.log("found devices from server: ");
-          console.log(msg);
+          if(DEBUG) console.log("found devices from server: ",msg);
           clientState.foundDevices = msg.data.foundDevices;
           break;
         case "training":
@@ -60,14 +59,6 @@ ws.onmessage = e => {
   }
 };
 
-//////////////////////////////////////// EVENT LISTENERS ////////////////////////////////////////////
-// document.getElementById("button_startAttach").addEventListener("click", () => {
-//   let selectedDeviceIds = scrapeSelectedDeviceIds();
-//   console.log("Sending selected devices to server...");
-//   sendToServer({ type: "ANT_updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
-// });
-
-
 /////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
 function sendToServer(obj) {
   if (ws && ws.readyState === ws.OPEN) {
@@ -79,7 +70,7 @@ function sendToServer(obj) {
 }
 
 function log(msg) {
-  const el = document.getElementById("log");
+  const el = document.getElementById("log-container");
   el.innerHTML += `<div>${msg}</div>`;
 };
 
@@ -91,13 +82,13 @@ function renderFoundDevice(isRegistered, deviceId, nome, cognome) {
     header.id = "found-devices-header";
     // header.style.display = "block"; 
     header.textContent = "Dispositivi trovati";
-    const devicesDiv = document.getElementById("devices");
-    devicesDiv.insertAdjacentElement("beforebegin", header);
+    const logContainer = document.getElementById("log-container");
+    logContainer.insertAdjacentElement("afterend", header);
   }
   let table = document.querySelector(".found-devices");
   if (!table) { //if table doesn't exist -> create it
     table = document.createElement("table");
-    table.className = "found-devices table-popup";
+    table.className = "found-devices animation-popup";
 
     // Crea l'header della tabella
     const headerRow = document.createElement("tr");
@@ -154,7 +145,7 @@ function renderStartAttachButton() {
   let btnWrapper = document.querySelector(".btn-wrapper");
   if (!btnWrapper) {
     btnWrapper = document.createElement("div");
-    btnWrapper.className = "btn-wrapper btn-popup";
+    btnWrapper.className = "btn-wrapper animation-popup";
 
     const button = document.createElement("button");
     button.id = "button_startAttach";
@@ -180,13 +171,22 @@ function renderStartAttachButton() {
 
 function renderDeviceStats(id, heartRate, age, weight, height) {
   if (id === 0) return; //ignore wildcard id
-  const container = document.getElementById("devices");
+  const container = document.getElementById("selected-devices-container");
+  if(!container)
+  {
+    console.log("container not existing yet,skipping")
+    return;
+  }
   let el = document.getElementById(`dev-${id}`);
   if (!el) {
     el = document.createElement("div");
     el.id = `dev-${id}`;
-    el.className = "device";
+    el.className = "device animation-popup";
     container.appendChild(el);
+
+     setTimeout(() => {
+      el.classList.add("show");
+    }, 50); // 50ms to let the transition happen
   }
   const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
   if (selectedDevice) {
@@ -215,12 +215,13 @@ function restoreUI(state) {//TODO
 }
 
 function renderTrainingUI() {
+  //removing elements
   const headerFoundDevices = document.getElementById("found-devices-header");
   if (!headerFoundDevices) {
     console.error("headerFoundDevices not found!");
     return;
   }
-  headerFoundDevices.style.display = "none";
+  headerFoundDevices.remove();
 
   const tableFoundDevices = document.querySelector(".found-devices");
   if (!tableFoundDevices) {
@@ -235,6 +236,17 @@ function renderTrainingUI() {
     return;
   }
   btnWrapper.remove();
+
+  //adding elements
+  let divSelectedDevices = document.getElementById("selected-devices-container");
+  if(!divSelectedDevices)
+  {
+    divSelectedDevices = document.createElement("div");
+    divSelectedDevices.id = "selected-devices-container";
+    const logContainer = document.getElementById("log-container");
+    logContainer.insertAdjacentElement("afterend",divSelectedDevices);
+  }
+
   if(DEBUG) console.log("training UI updated");
 }
 

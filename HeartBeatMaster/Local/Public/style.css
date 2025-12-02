@@ -32,19 +32,6 @@ table {
   color: #343a40;
 }
 
-/* table animation */
-.table-popup {
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-}
-
-.table-popup.show {
-  opacity: 1;
-  transform: scale(1);
-}
-
-
 thead {
   background: #f5f5f5;
 }
@@ -99,16 +86,6 @@ button:disabled {
   box-shadow: none;
 }
 
-.btn-popup {
-  opacity: 0;
-  transform: scale(0.9);
-  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-}
-
-.btn-popup.show {
-  opacity: 1;
-  transform: scale(1);
-}
 
 
 /* REGISTRATION POPUP */
@@ -218,9 +195,16 @@ button:disabled {
   to { opacity: 1; transform: translateY(0); }
 }
 
+.animation-popup {
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
 
-
-
+.animation-popup.show {
+  opacity: 1;
+  transform: scale(1);
+}
 
 
 /* FONTS */
