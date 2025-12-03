@@ -52,10 +52,25 @@ export async function startAntManager() {
             try{
                result  = await checkForDeviceUsers(ids);        //TODO handle site connection error
             }
-            catch(error){
-                console.error("Error on checkForDeviceUsers", error)
-                console.log("Sending error to client");
-                sendToClient({type: "error",error})
+            catch(err){
+                console.error("Error on checkForDeviceUsers", err)
+                const msg = err.message || "";
+                let data = "";
+                const isSqlStateError = msg.includes("SQLSTATE[HY000]");
+                const isConnectionRefused = msg.includes("[2002]");
+                if (isSqlStateError && isConnectionRefused) {
+                    data = "Errore DB: Impossibile stabilire la connessione al database!";
+                }
+                else if(msg.includes("fetch failed"))
+                {
+                    data = "Errore sul sito: Sito non raggiungibile!";
+                }
+                else
+                {
+                    data = "Unknown error:" + msg;
+                }
+                console.log("Sending error to client...");
+                sendToClient({type: "error",data})
                 return;
             }
             displayResults(result);

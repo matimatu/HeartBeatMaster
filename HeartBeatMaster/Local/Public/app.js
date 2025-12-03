@@ -56,7 +56,7 @@ ws.onmessage = e => {
       break;
     case "error":
       if(DEBUG)console.log("Errore ricevuto da ANTManager");
-      log("Site not available!");
+      log(msg.data);
       sendToServer({ type: "shutDown", data: msg.data });
       break;
     default:
