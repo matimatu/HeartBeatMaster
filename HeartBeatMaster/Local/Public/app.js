@@ -54,6 +54,11 @@ ws.onmessage = e => {
         console.log("clientState updated:", clientState, msg.data.phase);
       restoreUI(msg.data);   //TODO handle restoration of UI based on current state
       break;
+    case "error":
+      if(DEBUG)console.log("Errore ricevuto da ANTManager");
+      log("Site not available!");
+      sendToServer({ type: "shutDown", data: msg.data });
+      break;
     default:
       log(`message type not recognised: ${JSON.stringify(msg)}`);
   }

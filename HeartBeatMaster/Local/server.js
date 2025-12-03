@@ -90,6 +90,10 @@ wss.on("connection", (ws) => {
           console.log("Server->Forwarding message to ANT Manager...");
           handleAppMessage(msg);
           break;
+        case "shutDown":
+          console.log("Server->Shutting down...")
+          shutdown();
+          break;
         default:
           console.error(`Server->msg type not recognised: ${msg.type} `);
           break;
@@ -129,4 +133,30 @@ function sendStateToClient(ws) {
   if(DEBUG) console.log(`Server -> sent state to client: ${JSON.stringify({serverState})}`)
 }
 
+function shutdown() {
+  console.log("\nServer->Shutting down...");
+
+  //close the web socket server
+  wss.clients.forEach(client => {
+    try {
+      client.close();
+    } catch (err) {
+      console.error("Error closing client:", err);
+    }
+  });
+
+  wss.close(() => {
+    console.log("Server->WebSocket server closed");
+  });
+
+  // 2)close the http server
+  server.close(() => {
+    console.log("Server->HTTP server closed");
+    process.exit(0);
+  });
+}
+//capture SIGINT (Ctrl+C)
+process.on("SIGINT", shutdown);
+//capture SIGTERM (kill)
+process.on("SIGTERM", shutdown);
 

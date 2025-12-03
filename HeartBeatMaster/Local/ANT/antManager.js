@@ -48,8 +48,16 @@ export async function startAntManager() {
         hrScanner.once("detached", async () => {
             console.log("scanner detached");
             sendToClient({ type: "scanResult", data: ids });
-
-            let result = await checkForDeviceUsers(ids);        //TODO handle site connection error
+            let result;
+            try{
+               result  = await checkForDeviceUsers(ids);        //TODO handle site connection error
+            }
+            catch(error){
+                console.error("Error on checkForDeviceUsers", error)
+                console.log("Sending error to client");
+                sendToClient({type: "error",error})
+                return;
+            }
             displayResults(result);
             setPhase("selection");
         });
@@ -215,7 +223,7 @@ async function attachToDevice(channel, deviceId) {
             if (finished) return;
             finished = true;
 
-            try { sensor.detach(); } catch { }
+            sensor.detach();
 
             reject(new Error("ATTACH_TIMEOUT"));
         }, 1000);
