@@ -6,7 +6,7 @@ import { setPhase } from "../server.js";
 let stick = null;
 let wsClient = null;
 let running = false; // to handle multiple starts
-const DEBUG = true;
+const DEBUG = false;
 export async function startAntManager() {
     console.log("\n\nStarting ANT+ process...");
     if (running) {
@@ -35,7 +35,6 @@ export async function startAntManager() {
             console.log("New sensor found:");
             console.log(`   DeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
-            console.log(`   Beat time: ${data.BeatTime}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
             //send data to frontend
             sendToClient({ type: "newSensor", data });
@@ -113,7 +112,7 @@ function sendToClient(obj) {
 
 export async function handleAppMessage(msg) {
   switch (msg.type) {
-    case "ANT_updateSelectedDevice":
+    case "updateSelectedDevice":
         console.log("List of selected devices received from app:", msg.data);
         let result = await attachSelectedDevices(msg.data);
         if (result) {
@@ -229,6 +228,8 @@ async function attachToDevice(channel, deviceId) {
             console.log(`   \nDeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             console.log(`   Beat time: ${data.BeatTime}`);
+            console.log(`   Beat Count: ${data.BeatCount}`);
+            console.log(`  Previous Beat: ${data.PreviousBeat}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
 
             sendToClient({ type: "heartRate", data });
@@ -243,6 +244,15 @@ async function attachToDevice(channel, deviceId) {
             reject(new Error("ATTACH_TIMEOUT"));
         }, 1000);
     });
+}
+
+export async function detachAllDevices(){
+    try{
+        stick.close();
+    }catch(err)
+    {
+        console.log("ANT-> error on trying to close the stick", err);
+    }
 }
 
 function displayResults(result) {

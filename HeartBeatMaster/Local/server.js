@@ -1,7 +1,7 @@
 import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
-import { startAntManager, setWsConnection, handleAppMessage } from "./ANT/antManager.js";
+import { startAntManager, setWsConnection, handleAppMessage,detachAllDevices } from "./ANT/antManager.js";
 
 const PORT = 8080;
 const DEBUG = true;
@@ -67,7 +67,7 @@ wss.on("connection", (ws) => {
           console.log("Server->Updated found devices:", serverState.foundDevices);
           console.log("\nServer->waiting for client to select devices...");
           break;
-        case "ANT_updateSelectedDevice":
+        case "updateSelectedDevice":
           if(DEBUG) console.log(`Server->data received on updateSelectedDevice: ${msg.data}`);
           for (const selectedId of msg.data) {
             if (DEBUG) console.log(`Server->selected id: ${selectedId}`);
@@ -133,9 +133,13 @@ function sendStateToClient(ws) {
   if(DEBUG) console.log(`Server -> sent state to client: ${JSON.stringify({serverState})}`)
 }
 
-function shutdown() {
+function shutdown() {   //TODO  add a deadline if the server doesn't stop
   console.log("\nServer->Shutting down...");
+  console.log("\nServer->ordering to ANTManager to detach all devices...");
+  detachAllDevices();
+  console.log("Server->Stick closed");
 
+  console.log("\nServer->closing WebSocket server...");
   //close the web socket server
   wss.clients.forEach(client => {
     try {
