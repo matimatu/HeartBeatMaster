@@ -1,11 +1,14 @@
-import { calcIntensity, calcHeartRateMax, calcHeartRateMin } from "./statsHandler.js";
+import { calcIntensity, calcHeartRateMax, calcHeartRateMin,calcAvgHeartRate,calcCaloriesBurnedPerTime,calcAgeFromBirthDate } from "./statsHandler.js";
 import { registerNewDevice } from "./phpConnector.js";
 
 const DEBUG = true;
 let clientState = {
-  foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate }]               useful in scanning and selection phases
-  selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin }]  useful in training phase
+  foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
+  selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, avgHeartRate, caloriesBurnt }]  useful in training phase
+  hrBuffer: [],  // { hr: number, timestamp: number }   //useful for calculating stats
 };
+const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
+const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
 const ws = new WebSocket(`ws://${location.host}`);
 
 if(DEBUG) ws.onopen = () => log("Connesso al server");
@@ -22,8 +25,11 @@ ws.onmessage = e => {
     case "UserDevice_attached":
       if(DEBUG) log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
       break;
+    case "UserDevice_detached":
+      console.error(msg.type + "not handled!");
+      break;
     case "heartRate":
-      renderDeviceStats(msg.data.DeviceId, msg.data.ComputedHeartRate);
+      handleHeartRateMsg(msg);
       break;
     case "deviceUsersInfo":
       renderFoundDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
@@ -63,6 +69,51 @@ ws.onmessage = e => {
       log(`message type not recognised: ${JSON.stringify(msg)}`);
   }
 };
+
+function handleHeartRateMsg(msg) {
+  const id = msg.data.DeviceId;
+  if (id === 0) return; //ignore wildcard id
+  const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
+  if (selectedDevice) {
+    const now = Date.now();
+    const hr = msg.data.ComputedHeartRate;
+    clientState.hrBuffer.push({hr , timestamp: now });
+    let avgHr = -1;
+    let caloriesBurnt = -1;
+    if (clientState.hrBuffer.length > 0 && (now - clientState.hrBuffer[0].timestamp) >= ONE_MIN) {
+        avgHr = calcAvgHeartRate(clientState.hrBuffer);
+        if(DEBUG) console.log("frequency rate in one minute:", avgHr);
+        if(selectedDevice.avgHeartRate === undefined)
+          selectedDevice.avgHeartRate = avgHr;
+        else
+        {
+          selectedDevice.avgHeartRate = avgHr;
+
+        }
+        if(DEBUG) console.log("selectedDevice.avgHeartRate updated");
+
+        const age = calcAgeFromBirthDate(selectedDevice.birthDate);
+        caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex,selectedDevice.weight,avgHr,age,1);
+        if(DEBUG) console.log("Calories burned in one minute:",caloriesBurnt);
+        if(selectedDevice.caloriesBurnt === undefined)
+          selectedDevice.caloriesBurnt = caloriesBurnt;
+        else
+          selectedDevice.caloriesBurnt += caloriesBurnt;
+
+        if(DEBUG) console.log("selectedDevice.caloriesBurnt updated");
+
+        clientState.hrBuffer.length = 0; // empty the array
+      }
+    const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
+    renderDeviceStats(selectedDevice.deviceId,selectedDevice.name,selectedDevice.surname,
+       msg.data.ComputedHeartRate,intensity,selectedDevice.avgHeartRate,selectedDevice.caloriesBurnt);
+  }
+  else
+  {
+    console.error("device with id " + id + " not found in selectedDevices!",clientState.selectedDevices);
+    return;
+  }
+}
 
 /////////////////////////////////////////////// FUNCTIONS ////////////////////////////////////////////
 function sendToServer(obj) {
@@ -160,7 +211,7 @@ function renderStartAttachButton() {
     button.addEventListener("click", () => {
       let selectedDeviceIds = scrapeSelectedDeviceIds();
       console.log("Sending selected devices to server...");
-      sendToServer({ type: "ANT_updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
+      sendToServer({ type: "updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
     });
 
     btnWrapper.appendChild(button);
@@ -174,8 +225,16 @@ function renderStartAttachButton() {
 }
 
 
-function renderDeviceStats(id, heartRate, age, weight, height) {
-  if (id === 0) return; //ignore wildcard id
+function renderDeviceStats(id,userName,userSurname, heartRate, intensity,avgHr ,caloriesBurnt) {
+  let text;
+  text = ((userName && userSurname) ? userName + " " + userSurname            : "nome non trovato" + ": ");
+  text += `: ${heartRate} bpm`;
+  text += ` - Intensità: ${intensity} %`;
+  text += " - Frequenza media: ";
+  text += ((avgHr !== undefined)            ? `${avgHr} bpm`           : "sconosciuta");
+  text += " - Calorie bruciate: ";
+  text += ((caloriesBurnt !== undefined)    ? `${caloriesBurnt} KCal`   : "sconosciute");
+
   const container = document.getElementById("selected-devices-container");
   if(!container)
   {
@@ -193,12 +252,7 @@ function renderDeviceStats(id, heartRate, age, weight, height) {
       el.classList.add("show");
     }, 50); // 50ms to let the transition happen
   }
-  const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
-  if (selectedDevice) {
-    el.textContent = ((selectedDevice.name && selectedDevice.surname) ? selectedDevice.name + " " + selectedDevice.surname : "nome non trovato" + ": ");
-    el.textContent += `: ${heartRate} bpm`;
-    el.textContent += ` - Intensità: ${calcIntensity(heartRate, selectedDevice.hrMax, selectedDevice.hrMin)} %`;
-  }
+  el.textContent = text;
 }
 
 function restoreUI(state) {//TODO
@@ -400,3 +454,4 @@ function showRegistrationPopup(onSubmitCallback) {
     if (onSubmitCallback) onSubmitCallback(data);
   };
 }
+

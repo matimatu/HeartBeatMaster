@@ -4,13 +4,17 @@ export function calcIntensity(hr, hrMax, hrRest) {
   return intensity.toFixed(2);
 }
 
-export function calcHeartRateMax(bornDate) {
-  const birthYear = new Date(bornDate).getFullYear();
-  const currentYear = new Date().getFullYear();
-  const age = currentYear - birthYear;
+export function calcHeartRateMax(birthDate) {
+  const age = calcAgeFromBirthDate(birthDate);
   return 208 -0.7*age;
 }
 
+export function calcAgeFromBirthDate(birthDate)
+{
+   const birthYear = new Date(birthDate).getFullYear();
+  const currentYear = new Date().getFullYear();
+  return currentYear - birthYear;
+}
 export function calcHeartRateMin(sex) {
   sex = sex.toLowerCase();
   if(sex === "male"){
@@ -24,18 +28,21 @@ export function calcHeartRateMin(sex) {
   }
 }
 
-export function calcCaloriesBurnedPerMin(sex,weightKg, avgHeartRate, age) {
+export function calcCaloriesBurnedPerTime(sex, weight, avgHeartRate, age,timeInMinutes) {
   let calories;
   sex = sex.toLowerCase();
   if( sex === "male")
-    calories = ((-55.0969 + (0.6309 * avgHeartRate) + (0.1988 * weightKg) + (0.2017 * age)) / 4.184);
+    calories = timeInMinutes*((-55.0969 + (0.6309 * avgHeartRate) + (0.1988 * weight) + (0.2017 * age)) / 4.184);
   else if (sex === "female")
-    calories = ((-20.4022 + (0.4472 * avgHeartRate) - (0.1263 * weightKg) + (0.074 * age)) / 4.184);
+    calories = timeInMinutes*((-20.4022 + (0.4472 * avgHeartRate) - (0.1263 * weight) + (0.074 * age)) / 4.184);
   else
     throw new Error("Invalid value for sex parameter: "+ sex);
   return calories.toFixed(2);
 }
 
-export function calcAvgHeartRate(dataPoints) {
- //TODO
+export function calcAvgHeartRate(hrBuffer) {
+  if (hrBuffer.length === 0) return 0;
+
+  const sum = hrBuffer.reduce((acc, v) => acc + v.hr, 0);
+  return Math.round(sum / hrBuffer.length);
 }
