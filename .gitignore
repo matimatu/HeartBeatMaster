@@ -11,3 +11,6 @@ HeartBeatMaster/OnlineSite/style.css
 HeartBeatMaster/OnlineSite/index.php
 HeartBeatMaster/OnlineSite/Pages/utenti.php
 .vscode/tasks.json
+HeartBeatMaster/Local/Refactored/main.js
+HeartBeatMaster/Local/Refactored/uiRenderer.js
+HeartBeatMaster/Local/Refactored/logicHandler.js

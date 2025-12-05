@@ -212,13 +212,13 @@ async function attachToDevice(channel, deviceId) {
             finished = true;
             clearTimeout(timer);
             console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
-            sendToClient({ type: "UserDevice_attached", deviceId, channel });
+            sendToClient({ type: "userDevice_attached", deviceId, channel });
             resolve();
         });
 
         sensor.on('detached', () => {
             console.log(`Sensor ${deviceId} detached`);
-            sendToClient({ type: "UserDevice_detached", deviceId, channel });
+            sendToClient({ type: "userDevice_detached", deviceId, channel });
 
         });
 
