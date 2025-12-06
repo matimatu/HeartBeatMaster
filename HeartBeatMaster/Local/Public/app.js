@@ -1,12 +1,14 @@
 import { calcIntensity, calcHeartRateMax, calcHeartRateMin, calcAvgHeartRate, calcCaloriesBurnedPerTime, calcAgeFromBirthDate } from "./statsHandler.js";
 import { registerNewDevice } from "./phpConnector.js";
 
+
 const DEBUG = true;
 let clientState = {
     foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
     selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, avgHeartRate, caloriesBurnt }]  useful in training phase
     hrBuffer: [],  // { hr: number, timestamp: number }   //useful for calculating stats
 };
+const TEN_SEC = 1 * 10 * 1000; // 20 seconds in ms, for debugging purposes
 const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
 const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
 const ws = new WebSocket(`ws://${location.host}`);
@@ -82,32 +84,44 @@ function handleHeartRateMsg(msg) {
         clientState.hrBuffer.push({ hr, timestamp: now });
         let avgHr = -1;
         let caloriesBurnt = -1;
-        if (clientState.hrBuffer.length > 0 && (now - clientState.hrBuffer[0].timestamp) >= ONE_MIN) {
+        const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
+        let timeBeforeCalculating;
+        if(DEBUG) timeBeforeCalculating = TEN_SEC;
+        else timeBeforeCalculating = ONE_MIN;
+        if (clientState.hrBuffer.length > 0 && (now - clientState.hrBuffer[0].timestamp) >= timeBeforeCalculating) {
             avgHr = calcAvgHeartRate(clientState.hrBuffer);
             if (DEBUG) console.log("frequency rate in one minute:", avgHr);
             if (selectedDevice.avgHeartRate === undefined)
                 selectedDevice.avgHeartRate = avgHr;
             else {
                 selectedDevice.avgHeartRate = avgHr;
-
             }
             if (DEBUG) console.log("selectedDevice.avgHeartRate updated");
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
             caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 1);
+            if(DEBUG) caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 0.1);
             if (DEBUG) console.log("Calories burned in one minute:", caloriesBurnt);
             if (selectedDevice.caloriesBurnt === undefined)
                 selectedDevice.caloriesBurnt = caloriesBurnt;
             else
-                selectedDevice.caloriesBurnt += caloriesBurnt;
+            {
+                let caloriesBurntPrev = parseFloat(selectedDevice.caloriesBurnt);
+                let caloriesBurntNow  = Number(caloriesBurnt) || 0;
+                selectedDevice.caloriesBurnt = (caloriesBurntPrev + caloriesBurntNow).toFixed(2);
+            }
 
             if (DEBUG) console.log("selectedDevice.caloriesBurnt updated");
-
+            const avgIntensity = calcIntensity(avgHr, selectedDevice.hrMax, selectedDevice.hrMin);
             clientState.hrBuffer.length = 0; // empty the array
+            const deviceId = selectedDevice.deviceId;
+            const name = selectedDevice.name;
+            const surname = selectedDevice.surname;
+            sendToServer({type: "deviceAvgData",data:{deviceId,name,surname,avgHr,caloriesBurnt,avgIntensity}})
+            if (DEBUG) console.log("data sent to server to udpate JSON file");
         }
-        const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
         renderDeviceStats(selectedDevice.deviceId, selectedDevice.name, selectedDevice.surname,
-            msg.data.ComputedHeartRate, intensity, selectedDevice.avgHeartRate, selectedDevice.caloriesBurnt);
+            msg.data.ComputedHeartRate, intensity,selectedDevice.caloriesBurnt);
     }
     else {
         console.error("device with id " + id + " not found in selectedDevices!", clientState.selectedDevices);
@@ -228,13 +242,11 @@ function renderStartAttachButton() {
 }
 
 
-function renderDeviceStats(id, userName, userSurname, heartRate, intensity, avgHr, caloriesBurnt) {
+function renderDeviceStats(id, userName, userSurname, heartRate, intensity, caloriesBurnt) {
     let text;
     text = ((userName && userSurname) ? userName + " " + userSurname : "nome non trovato" + ": ");
     text += `: ${heartRate} bpm`;
     text += ` - Intensità: ${intensity} %`;
-    text += " - Frequenza media: ";
-    text += ((avgHr !== undefined) ? `${avgHr} bpm` : "sconosciuta");
     text += " - Calorie bruciate: ";
     text += ((caloriesBurnt !== undefined) ? `${caloriesBurnt} KCal` : "sconosciute");
 

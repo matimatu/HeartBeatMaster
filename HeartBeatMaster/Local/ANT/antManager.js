@@ -227,9 +227,9 @@ async function attachToDevice(channel, deviceId) {
         sensor.on("heartRateData", data => {
             console.log(`   \nDeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
-            console.log(`   Beat time: ${data.BeatTime}`);
-            console.log(`   Beat Count: ${data.BeatCount}`);
-            console.log(`  Previous Beat: ${data.PreviousBeat}`);
+            // console.log(`   Beat time: ${data.BeatTime}`);
+            // console.log(`   Beat Count: ${data.BeatCount}`);
+            // console.log(`  Previous Beat: ${data.PreviousBeat}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
 
             sendToClient({ type: "heartRate", data });

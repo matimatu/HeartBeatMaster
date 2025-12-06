@@ -1,4 +1,4 @@
-export function calcIntensity(hr, hrMax, hrRest) {
+export function calcIntensity(hr, hrMax, hrRest) { 
   const hrr = hrMax - hrRest;
   const intensity = ((hr - hrRest) / hrr) * 100;
   return intensity.toFixed(2);
