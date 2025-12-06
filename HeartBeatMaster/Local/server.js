@@ -161,6 +161,8 @@ function shutdown() {   //TODO  add a deadline if the server doesn't stop
     detachAllDevices();
     console.log("Server-> Stick closed");
 
+    console.log("Server-> Clearing JSON data file...");
+    clearDeviceData_JSON();
 
     console.log("\nServer-> closing WebSocket server...");
     //close the web socket server
@@ -264,4 +266,23 @@ function updateDeviceData_JSON(deviceId, name, surname, avgHeartRate, caloriesBu
         return false;
     }
     return true;
+}
+
+function clearDeviceData_JSON() {
+    try {
+        const filePath = path.join(__dirname, "devicesData.json");
+
+        // Sovrascrive il file con un array vuoto
+        fs.writeFileSync(filePath, JSON.stringify([], null, 4));
+
+        console.log("Server-> clearDeviceData_JSON -> File cleared successfully.");
+        return true;
+    } catch (err) {
+        if (err instanceof TypeError) {
+            console.error("Server-> clearDeviceData_JSON -> Type error: ", err.message);
+        } else {
+            console.error("Server-> clearDeviceData_JSON -> Error: ", err.message);
+        }
+        return false;
+    }
 }
