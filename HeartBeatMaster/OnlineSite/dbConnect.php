@@ -1,11 +1,4 @@
 <?php
-// db config
-$host = '127.0.0.1';  // localhost
-$port = 3306;          // MySQL port
-$dbname = 'pulse_monitor_advanced_test';
-$user = 'root';
-$pass = 'Mendilip98';   
-
 //------------table fields---------------------
 $fasce__TABLE = 'fasce';
     $fasce_ID__COLUMN = 'ID';
@@ -29,12 +22,20 @@ $utenti__TABLE = 'utenti';
     $utenti_sesso__COLUMN = 'sesso';
 
 function connectToDatabase() {
-
-    global $host, $port, $dbname, $user, $pass;
     
+    $config = require __DIR__ . '/config.php';
+
+    $db = $config['db'];
+    $host = $db['host'];
+    $port = $db['port'];
+    $dbname = $db['name'];
+    $user = $db['user'];
+    $pass = $db['pass'];
+
     $dsn = "mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4";
     $pdo = new PDO($dsn, $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
     return $pdo;
 }
 ?>
