@@ -1,0 +1,25 @@
+[
+    {
+        "deviceId": "7951",
+        "name": "mario",
+        "surname": "rossi",
+        "avgHeartRatePerMin": [
+            70,
+            70,
+            75,
+            87
+        ],
+        "caloriesBurntPerMin": [
+            "0.34",
+            "0.34",
+            "0.41",
+            "0.59"
+        ],
+        "intensityPerMin": [
+            "41.08",
+            "41.08",
+            "44.04",
+            "51.14"
+        ]
+    }
+]
