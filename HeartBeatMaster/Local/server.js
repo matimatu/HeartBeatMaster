@@ -19,7 +19,7 @@ const wss = new WebSocketServer({ server });
 const serverState = {
     phase: "scanning",  // "scanning" | "selection" | "training"
     foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
-    selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin }]  useful in training phase
+    selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]  useful in training phase
 };
 
 app.use(express.static("public"));
@@ -90,6 +90,7 @@ wss.on("connection", (ws) => {
                                 height: foundDev.height,
                                 birthDate: foundDev.birthDate,
                                 sex: foundDev.sex,
+                                hrBuffer: []  //will contains tuples of { hr: number, timestamp: number }
                             });
                         }
                     }

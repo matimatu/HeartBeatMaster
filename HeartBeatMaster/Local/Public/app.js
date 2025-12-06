@@ -5,8 +5,7 @@ import { MessageTypes } from "./messageTypes.js";
 const DEBUG = true;
 let clientState = {
     foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
-    selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, avgHeartRate, caloriesBurnt }]  useful in training phase
-    hrBuffer: [],  // { hr: number, timestamp: number }   //useful for calculating stats
+    selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, caloriesBurnt,hrBuffer[{ hr, timestamp }] }]  useful in training phase
 };
 const TEN_SEC = 1 * 10 * 1000; // 10 seconds in ms, for debugging purposes
 const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
@@ -52,6 +51,10 @@ ws.onmessage = e => {
                     for (const selectedDevice of clientState.selectedDevices) {
                         selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthDate);
                         selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sex);
+                        if(selectedDevice.hrBuffer === undefined)
+                        {
+                            selectedDevice.hrBuffer = [];   //will contains tuples of { hr: number, timestamp: number } 
+                        }
                     }
                     break;
                 default:
@@ -82,22 +85,16 @@ function handleHeartRateMsg(msg) {
     if (selectedDevice) {
         const now = Date.now();
         const hr = msg.data.ComputedHeartRate;
-        clientState.hrBuffer.push({ hr, timestamp: now });
+        selectedDevice.hrBuffer.push({ hr, timestamp: now });
         let avgHr = -1;
         let caloriesBurnt = -1;
         const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
         let timeBeforeCalculating;
         if (DEBUG) timeBeforeCalculating = TEN_SEC;
         else timeBeforeCalculating = ONE_MIN;
-        if (clientState.hrBuffer.length > 0 && (now - clientState.hrBuffer[0].timestamp) >= timeBeforeCalculating) {
-            avgHr = calcAvgHeartRate(clientState.hrBuffer);
+        if (selectedDevice.hrBuffer.length > 0 && (now - selectedDevice.hrBuffer[0].timestamp) >= timeBeforeCalculating) {
+            avgHr = calcAvgHeartRate(selectedDevice.hrBuffer);
             if (DEBUG) console.log("frequency rate in one minute:", avgHr);
-            if (selectedDevice.avgHeartRate === undefined)
-                selectedDevice.avgHeartRate = avgHr;
-            else {
-                selectedDevice.avgHeartRate = avgHr;
-            }
-            if (DEBUG) console.log("selectedDevice.avgHeartRate updated");
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
             caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 1);
@@ -113,7 +110,7 @@ function handleHeartRateMsg(msg) {
 
             if (DEBUG) console.log("selectedDevice.caloriesBurnt updated");
             const avgIntensity = calcIntensity(avgHr, selectedDevice.hrMax, selectedDevice.hrMin);
-            clientState.hrBuffer.length = 0; // empty the array
+            selectedDevice.hrBuffer.length = 0; // empty the array
             const deviceId = selectedDevice.deviceId;
             const name = selectedDevice.name;
             const surname = selectedDevice.surname;
