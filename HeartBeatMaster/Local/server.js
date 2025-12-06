@@ -2,6 +2,7 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
 import { startAntManager, setWsConnection, handleAppMessage, detachAllDevices } from "./ANT/antManager.js";
+import { MessageTypes } from "./Public/messageTypes.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -44,7 +45,7 @@ wss.on("connection", (ws) => {
             if (DEBUG)
                 console.log("Server->  message received from client:", msg);
             switch (msg.type) {
-                case "updateFoundDevice":
+                case MessageTypes.UPDATE_FOUND_DEVICE:
                     if (msg.data.registered === true) {
                         const index = serverState.foundDevices.findIndex(d => d.deviceId === msg.data.deviceId && d.registered === false);
                         if (index !== -1) {
@@ -73,7 +74,7 @@ wss.on("connection", (ws) => {
                     console.log("Server-> Updated found devices:", serverState.foundDevices);
                     console.log("\nServer-> waiting for client to select devices...");
                     break;
-                case "updateSelectedDevice":
+                case MessageTypes.UPDATE_SELECTED_DEVICE:
                     if (DEBUG) console.log(`Server-> data received on updateSelectedDevice: ${msg.data}`);
                     for (const selectedId of msg.data) {
                         if (DEBUG) console.log(`Server-> selected id: ${selectedId}`);
@@ -96,18 +97,16 @@ wss.on("connection", (ws) => {
                     console.log("Server-> Forwarding message to ANT Manager...");
                     handleAppMessage(msg);
                     break;
-                case "deviceAvgData":
-                    if(updateDeviceData_JSON(msg.data.deviceId, msg.data.name, msg.data.surname,
-                        msg.data.avgHr, msg.data.caloriesBurnt, msg.data.avgIntensity))
-                        {
-                            if (DEBUG) console.log("Server-> JSON updated");
-                        }
-                        else
-                        {
-                            shutdown();
-                        }
+                case MessageTypes.AVG_DEVICE_DATA:
+                    if (updateDeviceData_JSON(msg.data.deviceId, msg.data.name, msg.data.surname,
+                        msg.data.avgHr, msg.data.caloriesBurnt, msg.data.avgIntensity)) {
+                        if (DEBUG) console.log("Server-> JSON updated");
+                    }
+                    else {
+                        shutdown();
+                    }
                     break;
-                case "shutDown":
+                case MessageTypes.SHUTDOWN:
                     console.log("Server-> Shutting down...")
                     shutdown();
                     break;
@@ -147,11 +146,13 @@ export function setPhase(newPhase) {
 }
 
 function sendStateToClient(ws) {
-    ws.send(JSON.stringify({
-        type: "currentState",
-        data: serverState
-    }));
-    if (DEBUG) console.log(`Server -> sent state to client: ${JSON.stringify({ serverState })}`)
+    if (ws && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: MessageTypes.CURRENT_SERVER_STATE, data: serverState}));
+        if (DEBUG) console.log(`Server -> sent currentState to client: ${JSON.stringify({ serverState })}`)
+    }
+    else
+        console.error("\nws error, unable to send currentState to client!");
+
 }
 
 function shutdown() {   //TODO  add a deadline if the server doesn't stop
@@ -159,6 +160,7 @@ function shutdown() {   //TODO  add a deadline if the server doesn't stop
     console.log("\nServer-> ordering to ANTManager to detach all devices...");
     detachAllDevices();
     console.log("Server-> Stick closed");
+
 
     console.log("\nServer-> closing WebSocket server...");
     //close the web socket server
@@ -200,7 +202,6 @@ function getDeviceById_JSON(deviceId, filePath) {
             return json[i];
         }
     }
-
     return null;
 }
 
@@ -251,13 +252,13 @@ function updateDeviceData_JSON(deviceId, name, surname, avgHeartRate, caloriesBu
         // Rewrite the JSON file with updated data
         fs.writeFileSync(filePath, JSON.stringify(data, null, 4));
     } catch (err) {
-        if(err instanceof SyntaxError){
+        if (err instanceof SyntaxError) {
             console.error("Server-> updateDeviceData_JSON-> Parsing error: invalid JSON: ", err.message);
         }
-        else if(err instanceof TypeError){
+        else if (err instanceof TypeError) {
             console.error("Server-> updateDeviceData_JSON-> Type error in path.join: ", err.message);
         }
-        else{
+        else {
             console.error("Server-> updateDeviceData_JSON-> Error: ", err.message);
         }
         return false;

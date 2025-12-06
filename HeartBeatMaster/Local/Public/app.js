@@ -1,6 +1,6 @@
 import { calcIntensity, calcHeartRateMax, calcHeartRateMin, calcAvgHeartRate, calcCaloriesBurnedPerTime, calcAgeFromBirthDate } from "./statsHandler.js";
 import { registerNewDevice } from "./phpConnector.js";
-
+import { MessageTypes } from "./messageTypes.js";
 
 const DEBUG = true;
 let clientState = {
@@ -8,7 +8,7 @@ let clientState = {
     selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, avgHeartRate, caloriesBurnt }]  useful in training phase
     hrBuffer: [],  // { hr: number, timestamp: number }   //useful for calculating stats
 };
-const TEN_SEC = 1 * 10 * 1000; // 20 seconds in ms, for debugging purposes
+const TEN_SEC = 1 * 10 * 1000; // 10 seconds in ms, for debugging purposes
 const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
 const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
 const ws = new WebSocket(`ws://${location.host}`);
@@ -18,27 +18,27 @@ if (DEBUG) ws.onopen = () => log("Connesso al server");
 ws.onmessage = e => {
     const msg = JSON.parse(e.data);
     switch (msg.type) {
-        case "newSensor":
+        case MessageTypes.NEW_SENSOR:
             if (DEBUG) log(`Nuovo sensore trovato: ${msg.data.DeviceId}`);
             break;
-        case "scanResult":
+        case MessageTypes.SCAN_RESULT:
             if (DEBUG) log(`Scansione completata (${Object.keys(msg.data).length} dispositivi trovati)`);
             break;
-        case "userDevice_attached":
+        case MessageTypes.DEVICE_ATTACHED:
             if (DEBUG) log(`Sensore ${msg.deviceId} attaccato (canale ${msg.channel})`);
             break;
-        case "userDevice_detached":
+        case MessageTypes.DEVICE_DETACHED:
             console.error(msg.type + "not handled!");
             break;
-        case "heartRate":
+        case MessageTypes.HEART_RATE:
             handleHeartRateMsg(msg);
             break;
-        case "deviceUsersInfo":
+        case MessageTypes.DEVICE_USER_INFO:
             renderFoundDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
             document.getElementById("button_startAttach").style.display = "block";
-            sendToServer({ type: "updateFoundDevice", data: msg.data });
+            sendToServer({ type: MessageTypes.UPDATE_FOUND_DEVICE, data: msg.data });
             break;
-        case "currentState":
+        case MessageTypes.CURRENT_SERVER_STATE:
             switch (msg.data.phase) {
                 case "scanning":
                     break;
@@ -62,13 +62,14 @@ ws.onmessage = e => {
                 console.log("clientState updated:", clientState, msg.data.phase);
             restoreUI(msg.data);   //TODO handle restoration of UI based on current state
             break;
-        case "error":
+        case MessageTypes.ERROR:
             if (DEBUG) console.log("Errore ricevuto da ANTManager");
             log(msg.data);
-            sendToServer({ type: "shutDown", data: msg.data });
+            sendToServer({ type: MessageTypes.SHUTDOWN, data: msg.data });
             break;
         default:
-            log(`message type not recognised: ${JSON.stringify(msg)}`);
+            console.error(`message type not recognised: ${JSON.stringify(msg)}`);
+            break;
     }
 };
 
@@ -86,7 +87,7 @@ function handleHeartRateMsg(msg) {
         let caloriesBurnt = -1;
         const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
         let timeBeforeCalculating;
-        if(DEBUG) timeBeforeCalculating = TEN_SEC;
+        if (DEBUG) timeBeforeCalculating = TEN_SEC;
         else timeBeforeCalculating = ONE_MIN;
         if (clientState.hrBuffer.length > 0 && (now - clientState.hrBuffer[0].timestamp) >= timeBeforeCalculating) {
             avgHr = calcAvgHeartRate(clientState.hrBuffer);
@@ -100,14 +101,13 @@ function handleHeartRateMsg(msg) {
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
             caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 1);
-            if(DEBUG) caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 0.1);
+            if (DEBUG) caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 0.1);
             if (DEBUG) console.log("Calories burned in one minute:", caloriesBurnt);
             if (selectedDevice.caloriesBurnt === undefined)
                 selectedDevice.caloriesBurnt = caloriesBurnt;
-            else
-            {
+            else {
                 let caloriesBurntPrev = parseFloat(selectedDevice.caloriesBurnt);
-                let caloriesBurntNow  = Number(caloriesBurnt) || 0;
+                let caloriesBurntNow = Number(caloriesBurnt) || 0;
                 selectedDevice.caloriesBurnt = (caloriesBurntPrev + caloriesBurntNow).toFixed(2);
             }
 
@@ -117,11 +117,11 @@ function handleHeartRateMsg(msg) {
             const deviceId = selectedDevice.deviceId;
             const name = selectedDevice.name;
             const surname = selectedDevice.surname;
-            sendToServer({type: "deviceAvgData",data:{deviceId,name,surname,avgHr,caloriesBurnt,avgIntensity}})
+            sendToServer({ type: MessageTypes.AVG_DEVICE_DATA, data: { deviceId, name, surname, avgHr, caloriesBurnt, avgIntensity } })
             if (DEBUG) console.log("data sent to server to udpate JSON file");
         }
         renderDeviceStats(selectedDevice.deviceId, selectedDevice.name, selectedDevice.surname,
-            msg.data.ComputedHeartRate, intensity,selectedDevice.caloriesBurnt);
+            msg.data.ComputedHeartRate, intensity, selectedDevice.caloriesBurnt);
     }
     else {
         console.error("device with id " + id + " not found in selectedDevices!", clientState.selectedDevices);
@@ -228,7 +228,7 @@ function renderStartAttachButton() {
         button.addEventListener("click", () => {
             let selectedDeviceIds = scrapeSelectedDeviceIds();
             console.log("Sending selected devices to server...");
-            sendToServer({ type: "updateSelectedDevice", data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
+            sendToServer({ type: MessageTypes.UPDATE_SELECTED_DEVICE, data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
         });
 
         btnWrapper.appendChild(button);
@@ -446,7 +446,7 @@ function button_registraOnClick(event) {
             cell.appendChild(checkbox);
             const nameCell = row.cells[1];
             nameCell.textContent = result.data.name + " " + result.data.surname;
-            sendToServer({ type: "updateFoundDevice", data: { deviceId, ...result.data } });
+            sendToServer({ type: MessageTypes.UPDATE_FOUND_DEVICE, data: { deviceId, ...result.data } });
         }
 
     });

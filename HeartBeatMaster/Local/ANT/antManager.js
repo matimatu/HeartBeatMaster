@@ -2,7 +2,7 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../Public/phpConnector.js";
 import { setPhase } from "../server.js";
-
+import { MessageTypes } from "../Public/messageTypes.js";
 let stick = null;
 let wsClient = null;
 let running = false; // to handle multiple starts
@@ -37,7 +37,7 @@ export async function startAntManager() {
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
             //send data to frontend
-            sendToClient({ type: "newSensor", data });
+            sendToClient({ type: MessageTypes.NEW_SENSOR, data });
         }
     });
     //after 2 seconds stop scanning and check for device users
@@ -46,7 +46,7 @@ export async function startAntManager() {
         hrScanner.detach();
         hrScanner.once("detached", async () => {
             console.log("scanner detached");
-            sendToClient({ type: "scanResult", data: ids });
+            sendToClient({ type: MessageTypes.SCAN_RESULT, data: ids });
             let result;
             try{
                result  = await checkForDeviceUsers(ids);        //TODO handle site connection error
@@ -69,7 +69,7 @@ export async function startAntManager() {
                     data = "Unknown error:" + msg;
                 }
                 console.log("Sending error to client...");
-                sendToClient({type: "error",data})
+                sendToClient({type: MessageTypes.ERROR,data})
                 return;
             }
             displayResults(result);
@@ -112,34 +112,34 @@ function sendToClient(obj) {
 
 export async function handleAppMessage(msg) {
   switch (msg.type) {
-    case "updateSelectedDevice":
-        console.log("List of selected devices received from app:", msg.data);
+    case MessageTypes.UPDATE_SELECTED_DEVICE:
+        console.log("ANTManager-> List of selected devices received from app:", msg.data);
         let result = await attachSelectedDevices(msg.data);
         if (result) {
             if(DEBUG) {           
-                console.log("Successfully attached to all selected devices.");
+                console.log("ANTManager-> Successfully attached to all selected devices.");
                 console.log("Entering training phase...");
             }
             setPhase("training");
         } else {
-        console.error("Failed to attach to all selected devices.");
+        console.error("ANTManager-> Failed to attach to all selected devices.");
         }
       break;
 
     default:
-      console.log("Command not recognised", msg);
+      console.error("ANTManager-> Command not recognised", msg);
   }
 }
 
 async function initializeAntStick() {
     stick = new Ant.GarminStick3();
     if (!(await stick.isPresent())) {
-        console.log("Stick3 ANT+ doesn't exist");
+        console.log("ANTManager-> Stick3 ANT+ doesn't exist");
         console.log("Trying Stick2...");
         stick = new Ant.GarminStick2();
 
         if (!(await stick.isPresent())) {
-            console.error("Stick2 doesn't exist!!");
+            console.error("ANTManager-> Stick2 doesn't exist!!");
             return null;
         }
     }
@@ -147,11 +147,11 @@ async function initializeAntStick() {
 }
 async function checkForDeviceUsers(ids) {
     if (ids.length === 0) {
-        console.log("No device found, couldn't check for users.");
+        console.log("ANTManager-> No device found, couldn't check for users.");
         process.exit(0);
     }
     let stringIds = ids.map(String);
-    console.log("Sending device IDs with API:", stringIds);
+    console.log("ANTManager-> Sending device IDs with API:", stringIds);
     const result = await queryDeviceOwners(stringIds);
 
     return result;
@@ -159,27 +159,27 @@ async function checkForDeviceUsers(ids) {
 
 async function attachSelectedDevices(ids) {
     let nextChannelAvailable = 0;
-    console.log("\nAttaching to selected devices...");
+    console.log("\nANTManager-> Attaching to selected devices...");
     console.log(ids.length + " devices to attach to.");
     for (const deviceId of ids) {
-        console.log("\nAttaching to device:", deviceId);
+        console.log("\nANTManager-> Attaching to device:", deviceId);
         try {
             await attachToDevice(nextChannelAvailable, deviceId); 
         } catch (error) {
-            console.error(`Failed to attach to device ${deviceId}:`, error.message);
-            console.log("Trying wildcard attach...");
+            console.error(`ANTManager-> Failed to attach to device ${deviceId}:`, error.message);
+            console.log("ANTManager-> Trying wildcard attach...");
             try {
                 await attachToDevice(nextChannelAvailable, 0); //tryng wildcard attach
                 
             } catch (error) {
-                console.error(`Wildcard attach also failed for device ${deviceId}:`, error.message);
+                console.error(`ANTManager-> Wildcard attach also failed for device ${deviceId}:`, error.message);
                 return false;
             }
         }
         
         nextChannelAvailable++;
         if (nextChannelAvailable >= stick.maxChannels) {
-            console.log("Max channels reached, cannot attach to more devices.");
+            console.log("ANTManager-> Max channels reached, cannot attach to more devices.");
             return false;
         }
     }
@@ -212,27 +212,27 @@ async function attachToDevice(channel, deviceId) {
             finished = true;
             clearTimeout(timer);
             console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
-            sendToClient({ type: "userDevice_attached", deviceId, channel });
+            sendToClient({ type: MessageTypes.DEVICE_ATTACHED, deviceId, channel });
             resolve();
         });
 
         sensor.on('detached', () => {
             console.log(`Sensor ${deviceId} detached`);
-            sendToClient({ type: "userDevice_detached", deviceId, channel });
+            sendToClient({ type: MessageTypes.DEVICE_DETACHED, deviceId, channel });
 
         });
 
         sensor.attach(channel, deviceId);
 
         sensor.on("heartRateData", data => {
-            console.log(`   \nDeviceID: ${data.DeviceId}`);
+            console.log(`ANTManager->   \nDeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             // console.log(`   Beat time: ${data.BeatTime}`);
             // console.log(`   Beat Count: ${data.BeatCount}`);
             // console.log(`  Previous Beat: ${data.PreviousBeat}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
 
-            sendToClient({ type: "heartRate", data });
+            sendToClient({ type: MessageTypes.HEART_RATE, data });
         });
 
         const timer = setTimeout(() => {
@@ -251,7 +251,7 @@ export async function detachAllDevices(){
         stick.close();
     }catch(err)
     {
-        console.log("ANT-> error on trying to close the stick", err);
+        console.log("ANTManager-> error on trying to close the stick", err);
     }
 }
 
@@ -274,13 +274,13 @@ function displayResults(result) {
                 birthDate: data.userData.data_nascita,
                 sex: data.userData.sesso,
             };                
-            sendToClient({ type: "deviceUsersInfo", data: { deviceId, ...info} });//the ... dismembers the info struct
+            sendToClient({ type: MessageTypes.DEVICE_USER_INFO, data: { deviceId, ...info} });//the ... dismembers the info struct
         }
         else
         {
             console.log("  No user data associated with this device.");
             const registered = false;
-            sendToClient({ type: "deviceUsersInfo", data: { deviceId, registered} });
+            sendToClient({ type:MessageTypes.DEVICE_USER_INFO, data: { deviceId, registered} });
         }
     }
 }
