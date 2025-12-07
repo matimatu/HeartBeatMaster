@@ -16,7 +16,7 @@
  *    This function normalizes those formats into the output shape above.
  *  - Uses global fetch where available
  */
-const DEBUG = false;
+const DEBUG = true;
 export async function queryDeviceOwners(deviceIds, timeoutMs) {
 	if (!Array.isArray(deviceIds)) {
 		throw new TypeError('deviceIds must be an array');
@@ -263,4 +263,167 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 	return result;
 }
 
-// export default queryDeviceOwners;
+
+/**
+ * Save workout data to the remote PHP API
+ * 
+ * Parameters:
+ *  - jsonData: Array of device workout data (e.g., from devicesData.json)
+ *  - startDate: ISO 8601 or MySQL datetime string (e.g., "2025-12-07 10:00:00")
+ *  - endDate: ISO 8601 or MySQL datetime string (e.g., "2025-12-07 11:00:00")
+ *  - intervalDuration: Number - duration of each measurement interval in seconds
+ *  - workoutType: String - name of workout type (must exist in database)
+ * 
+ * Returns: boolean (true if successful, false if failed)
+ */
+export async function saveWorkoutData(jsonData, startDate, endDate, intervalDuration, workoutType) {
+	// --- Input Validation ---
+	if (jsonData == null) {
+		console.error('saveWorkoutData: jsonData is required');
+		return false;
+	}
+
+	if (!Array.isArray(jsonData)) {
+		console.error('saveWorkoutData: jsonData must be an array');
+		return false;
+	}
+
+	if (jsonData.length === 0) {
+		console.error('saveWorkoutData: jsonData array is empty');
+		return false;
+	}
+
+	if(startDate != null)	{
+		if(typeof startDate === 'string') {
+			if (startDate.trim() === '') {
+				console.error('saveWorkoutData: startDate must be a non-empty string: ');
+				return false;
+			}
+			const tmp = new Date(startDate);
+			startDate = tmp.toISOString();
+		}
+		else{
+			startDate = startDate.toISOString();
+		}
+	}
+	else{
+		console.error('saveWorkoutData: startDate is null');
+		return false;
+	}
+	
+	if(endDate != null)	{
+		if(typeof endDate === 'string') {
+			if (endDate.trim() === '') {
+				console.error('saveWorkoutData: endDate must be a non-empty string: ');
+				return false;
+			}
+			const tmp = new Date(endDate);
+			endDate = tmp.toISOString();
+		}
+		else{
+			endDate = endDate.toISOString();
+		}
+	}
+	else{
+		console.error('saveWorkoutData: endDate is null');
+		return false;
+	}
+
+	if (intervalDuration == null || !Number.isInteger(Number(intervalDuration)) || Number(intervalDuration) <= 0) {
+		console.error('saveWorkoutData: intervalDuration must be a positive integer');
+		return false;
+	}
+
+	if (workoutType == null || typeof workoutType !== 'string' || workoutType.trim() === '') {
+		console.error('saveWorkoutData: workoutType must be a non-empty string');
+		return false;
+	}
+
+	startDate 	= toMySQLDateTime(startDate);
+	endDate 	= toMySQLDateTime(endDate);
+	const url = 'http://localhost/HeartBeatMaster/OnlineSite/API/save-workout-data.php';
+	const timeoutMs = 8000;
+
+	// Select fetch implementation (browser or node-fetch)
+	let fetchImpl = (typeof fetch !== 'undefined' ? fetch : null);
+	if (!fetchImpl) {
+		try {
+			const mod = await import('node-fetch');
+			fetchImpl = mod.default || mod;
+		} catch (err) {
+			console.error('saveWorkoutData: No fetch available. Please run on Node 18+ or install node-fetch');
+			return false;
+		}
+	}
+
+	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+	const signal = controller ? controller.signal : undefined;
+
+	// Build request payload matching API expectations
+	const body = JSON.stringify({
+		workout_data: jsonData,
+		start_date: startDate.trim(),
+		end_date: endDate.trim(),
+		interval_duration: parseInt(intervalDuration, 10),
+		workout_type: workoutType.trim()
+	});
+
+	const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+	let resp;
+	try {
+		if (DEBUG) console.log('saveWorkoutData -> POST', url, 'with body:', body);
+		resp = await fetchImpl(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body,
+			signal,
+		});
+	} catch (err) {
+		if (err.name === 'AbortError') {
+			console.error(`saveWorkoutData: request to ${url} timed out after ${timeoutMs}ms`);
+			return false;
+		}
+		console.error('saveWorkoutData -> fetch error:', err.message);
+		return false;
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+
+	if (!resp.ok) {
+		const text = await resp.text().catch(() => '');
+		console.error(`saveWorkoutData -> API returned ${resp.status} ${resp.statusText}: ${text}`);
+		return false;
+	}
+
+	// Parse JSON response
+	try {
+		const data = await resp.json().catch(() => null);
+		if (DEBUG) console.log('saveWorkoutData -> response:', data);
+
+		// API response format: { success: boolean, message: string, workoutId: number, deviceCount: number }
+		if (data && typeof data === 'object') {
+			if (typeof data.success === 'boolean') {
+				if (data.success) {
+					if(DEBUG) console.log(`saveWorkoutData: Success! Saved workout ${data.workoutId} with ${data.deviceCount} devices`);
+					
+					return true;
+				} else {
+					console.error('saveWorkoutData: API returned error:', data.error || data.message);
+					return false;
+				}
+			}
+		}
+
+		console.error('saveWorkoutData: Unexpected API response format');
+		return false;
+	} catch (err) {
+		console.error('saveWorkoutData -> failed parsing response:', err.message);
+		return false;
+	}
+}
+
+
+function toMySQLDateTime(dateISO_string) {
+    return dateISO_string.replace('T', ' ').replace('Z', '').split('.')[0];
+}

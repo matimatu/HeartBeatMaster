@@ -1,4 +1,4 @@
-import { Sex } from "./costantsHandler";
+import { Sex } from "./costantsHandler.js";
 export function calcIntensity(hr, hrMax, hrRest) { 
   const hrr = hrMax - hrRest;
   const intensity = ((hr - hrRest) / hrr) * 100;
