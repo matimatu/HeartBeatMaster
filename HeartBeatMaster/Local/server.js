@@ -2,13 +2,19 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
 import { startAntManager, setWsConnection, handleAppMessage, detachAllDevices } from "./ANT/antManager.js";
-import { MessageTypes } from "./Public/messageTypes.js";
+import { MessageTypes,WorkoutTypes,Phases } from "./Public/costantsHandler.js";
+import { saveWorkoutData } from "./Public/phpConnector.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+//interval durations
+const TEN_SEC = 1 * 10 * 1000; // 10 seconds in ms, for debugging purposes
+const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
+const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
 
 const PORT = 8080;
 const DEBUG = true;
@@ -17,9 +23,10 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
 const serverState = {
-    phase: "scanning",  // "scanning" | "selection" | "training"
-    foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
-    selectedDevices: [] // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]  useful in training phase
+    phase: Phases.SCANNING,      // Phases.SCANNING | Phases.SELECTION | Phases.WORKOUT
+    foundDevices: [],       // [{ registered, deviceId, name, surname, weight, birthDate, sex }]           useful in scanning and selection phases
+    selectedDevices: [],    // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]   useful in workout phase
+    workoutData:[]              // [{ startDate, endDate, intervalDuration, type}]                     useful in workout phase
 };
 
 app.use(express.static("public"));
@@ -39,7 +46,7 @@ wss.on("connection", (ws) => {
 
     startAntManager();
 
-    ws.onmessage = e => {
+    ws.onmessage = e  =>  {
         try {
             const msg = JSON.parse(e.data);
             if (DEBUG)
@@ -52,7 +59,6 @@ wss.on("connection", (ws) => {
                             serverState.foundDevices.splice(index, 1);
                             if (DEBUG) console.log("Server-> new device registered, removed old unknown device")
                         }
-
                         serverState.foundDevices.push({
                             registered: msg.data.registered,
                             deviceId: msg.data.deviceId,
@@ -72,7 +78,7 @@ wss.on("connection", (ws) => {
                     }
 
                     console.log("Server-> Updated found devices:", serverState.foundDevices);
-                    console.log("\nServer-> waiting for client to select devices...");
+                    console.log("\nServer-> waiting for client to select devices...");      //TODO it may be not the time to send this message!
                     break;
                 case MessageTypes.UPDATE_SELECTED_DEVICE:
                     if (DEBUG) console.log(`Server-> data received on updateSelectedDevice: ${msg.data}`);
@@ -107,6 +113,40 @@ wss.on("connection", (ws) => {
                         shutdown();
                     }
                     break;
+                case MessageTypes.END_WORKOUT:
+                    if(msg.data.endDateWorkout == null){
+                        console.error("Server-> END_WORKOUT message missing endDateWorkout data");
+                        break;
+                    }
+                    if(msg.data.intervalDuration == null){
+                        console.error("Server-> END_WORKOUT message missing intervalDuration data");
+                        break;
+                    }
+                    if(serverState.workoutData.startDate == null){
+                        console.error("Server-> END_WORKOUT serverState missing startDate data");
+                        break;
+                    }
+                    serverState.workoutData.endDate = msg.data.endDateWorkout;
+                    var filePath = path.join(__dirname, "devicesData.json");
+                    var data = [];
+                    if (fs.existsSync(filePath)) {
+                        var raw = fs.readFileSync(filePath, "utf-8");
+                        data = JSON.parse(raw);
+                    }
+
+                    saveWorkoutData(data,serverState.workoutData.startDate,serverState.workoutData.endDate,
+                        serverState.workoutData.intervalDuration,serverState.workoutData.type)
+                        .then(result => {
+                            if (result) {
+                                if(DEBUG) console.log("Server-> Workout data saved successfully");
+                            } else {
+                                console.error("Server-> Failed to save workout data");
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Server-> Error saving workout data:", err);
+                        });
+                    break;
                 case MessageTypes.SHUTDOWN:
                     console.log("Server-> Shutting down...")
                     shutdown();
@@ -133,9 +173,13 @@ wss.on("connection", (ws) => {
 
 export function setPhase(newPhase) {
     switch (newPhase) {
-        case "scanning":
-        case "selection":
-        case "training":
+        case Phases.SCANNING:
+        case Phases.SELECTION:
+            break;
+        case Phases.WORKOUT:
+            serverState.workoutData.startDate = Date.now();     //TODO maybe move the initialization of startDate in a more precise place
+            serverState.workoutData.intervalDuration = (DEBUG) ? TEN_SEC : ONE_MIN;
+            serverState.workoutData.type = WorkoutTypes.INTERVAL;       //TODO UI to select different types
             break;
         default:
             console.error("Server-> Invalid phase:", newPhase);
@@ -148,7 +192,7 @@ export function setPhase(newPhase) {
 
 function sendStateToClient(ws) {
     if (ws && ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: MessageTypes.CURRENT_SERVER_STATE, data: serverState}));
+        ws.send(JSON.stringify({ type: MessageTypes.CURRENT_SERVER_STATE, data: serverState }));
         if (DEBUG) console.log(`Server -> sent currentState to client: ${JSON.stringify({ serverState })}`)
     }
     else
