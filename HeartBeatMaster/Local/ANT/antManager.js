@@ -2,7 +2,7 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../Public/phpConnector.js";
 import { setPhase } from "../server.js";
-import { MessageTypes,Phases } from "../Public/costantsHandler.js";
+import { MessageTypes,Phases,Sex } from "../Public/costantsHandler.js";
 let stick = null;
 let wsClient = null;
 let running = false; // to handle multiple starts
@@ -246,9 +246,11 @@ async function attachToDevice(channel, deviceId) {
     });
 }
 
-export async function detachAllDevices(){
+export async function closeStick(){
     try{
-        stick.close();
+        if(!stick) return;
+        if (stick.is_open())
+            await stick.close();
     }catch(err)
     {
         console.log("ANTManager-> error on trying to close the stick", err);
