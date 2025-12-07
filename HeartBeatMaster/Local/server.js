@@ -1,7 +1,7 @@
 import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
-import { startAntManager, setWsConnection, handleAppMessage, detachAllDevices } from "./ANT/antManager.js";
+import { startAntManager, setWsConnection, handleAppMessage, closeStick } from "./ANT/antManager.js";
 import { MessageTypes,WorkoutTypes,Phases } from "./Public/costantsHandler.js";
 import { saveWorkoutData } from "./Public/phpConnector.js";
 import fs from "fs";
@@ -26,7 +26,7 @@ const serverState = {
     phase: Phases.SCANNING,      // Phases.SCANNING | Phases.SELECTION | Phases.WORKOUT
     foundDevices: [],       // [{ registered, deviceId, name, surname, weight, birthDate, sex }]           useful in scanning and selection phases
     selectedDevices: [],    // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]   useful in workout phase
-    workoutData:[]              // [{ startDate, endDate, intervalDuration, type}]                     useful in workout phase
+    workoutData:{}              // { startDate, endDate, intervalDuration, type}                     useful in workout phase
 };
 
 app.use(express.static("public"));
@@ -114,12 +114,14 @@ wss.on("connection", (ws) => {
                     }
                     break;
                 case MessageTypes.END_WORKOUT:
+                    console.log("\nServer-> ordering to ANTManager to close the stick...");
+                    closeStick();
                     if(msg.data.endDateWorkout == null){
                         console.error("Server-> END_WORKOUT message missing endDateWorkout data");
                         break;
                     }
-                    if(msg.data.intervalDuration == null){
-                        console.error("Server-> END_WORKOUT message missing intervalDuration data");
+                     if(serverState.workoutData.type == null){
+                        console.error("Server-> END_WORKOUT serverState missing type data");
                         break;
                     }
                     if(serverState.workoutData.startDate == null){
@@ -133,7 +135,6 @@ wss.on("connection", (ws) => {
                         var raw = fs.readFileSync(filePath, "utf-8");
                         data = JSON.parse(raw);
                     }
-
                     saveWorkoutData(data,serverState.workoutData.startDate,serverState.workoutData.endDate,
                         serverState.workoutData.intervalDuration,serverState.workoutData.type)
                         .then(result => {
@@ -177,7 +178,9 @@ export function setPhase(newPhase) {
         case Phases.SELECTION:
             break;
         case Phases.WORKOUT:
-            serverState.workoutData.startDate = Date.now();     //TODO maybe move the initialization of startDate in a more precise place
+              const ts = Date.now();
+            const startDateWorkout = new Date(ts);
+            serverState.workoutData.startDate = startDateWorkout;     //TODO maybe move the initialization of startDate in a more precise place
             serverState.workoutData.intervalDuration = (DEBUG) ? TEN_SEC : ONE_MIN;
             serverState.workoutData.type = WorkoutTypes.INTERVAL;       //TODO UI to select different types
             break;
@@ -203,8 +206,7 @@ function sendStateToClient(ws) {
 function shutdown() {   //TODO  add a deadline if the server doesn't stop
     console.log("\nServer-> Shutting down...");
     console.log("\nServer-> ordering to ANTManager to detach all devices...");
-    detachAllDevices();
-    console.log("Server-> Stick closed");
+    closeStick();
 
     console.log("Server-> Clearing JSON data file...");
     clearDeviceData_JSON();
