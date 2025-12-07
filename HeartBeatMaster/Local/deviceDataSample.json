@@ -21,5 +21,28 @@
             "44.04",
             "51.14"
         ]
+    },
+    {
+        "deviceId": "1234",
+        "name": "luigi",
+        "surname": "verdi",
+        "avgHeartRatePerMin": [
+            65,
+            68,
+            72,
+            80
+        ],
+        "caloriesBurntPerMin": [
+            "0.30",
+            "0.32",
+            "0.36",
+            "0.45"
+        ],
+        "intensityPerMin": [
+            "38.50",
+            "39.76",
+            "41.90",
+            "45.30"
+        ]
     }
 ]
