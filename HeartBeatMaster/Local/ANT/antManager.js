@@ -2,7 +2,7 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../Public/phpConnector.js";
 import { setPhase } from "../server.js";
-import { MessageTypes } from "../Public/messageTypes.js";
+import { MessageTypes,Phases } from "../Public/costantsHandler.js";
 let stick = null;
 let wsClient = null;
 let running = false; // to handle multiple starts
@@ -49,7 +49,7 @@ export async function startAntManager() {
             sendToClient({ type: MessageTypes.SCAN_RESULT, data: ids });
             let result;
             try{
-               result  = await checkForDeviceUsers(ids);        //TODO handle site connection error
+               result  = await checkForDeviceUsers(ids);
             }
             catch(err){
                 console.error("Error on checkForDeviceUsers", err)
@@ -73,7 +73,7 @@ export async function startAntManager() {
                 return;
             }
             displayResults(result);
-            setPhase("selection");
+            setPhase(Phases.SELECTION);      //TODO for now is useless,since the server has FoundDevices empty
         });
 
     }, 2000);
@@ -118,9 +118,9 @@ export async function handleAppMessage(msg) {
         if (result) {
             if(DEBUG) {           
                 console.log("ANTManager-> Successfully attached to all selected devices.");
-                console.log("Entering training phase...");
+                console.log("Entering workout phase...");
             }
-            setPhase("training");
+            setPhase(Phases.WORKOUT);
         } else {
         console.error("ANTManager-> Failed to attach to all selected devices.");
         }
@@ -264,7 +264,7 @@ function displayResults(result) {
             console.log("  Username:", data.userData.nome, data.userData.cognome);
             console.log("  Weight:", data.userData.peso);
             console.log("  Height:", data.userData.altezza);
-            console.log("  Sex:", data.userData.sesso === "male" ? "male" : "female");
+            console.log("  Sex:", data.userData.sesso === Sex.MALE ? Sex.MALE : Sex.FEMALE);
             const info = {
                 registered: true,
                 name: data.userData.nome,
