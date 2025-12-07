@@ -1,3 +1,4 @@
+import { Sex } from "./costantsHandler";
 export function calcIntensity(hr, hrMax, hrRest) { 
   const hrr = hrMax - hrRest;
   const intensity = ((hr - hrRest) / hrr) * 100;
@@ -17,9 +18,9 @@ export function calcAgeFromBirthDate(birthDate)
 }
 export function calcHeartRateMin(sex) {
   sex = sex.toLowerCase();
-  if(sex === "male"){
+  if(sex === Sex.MALE){
     return 0.64;
-  } else if(sex === "female"){
+  } else if(sex === Sex.FEMALE){
     return 0.76;
   }
   else
@@ -31,9 +32,9 @@ export function calcHeartRateMin(sex) {
 export function calcCaloriesBurnedPerTime(sex, weight, avgHeartRate, age,timeInMinutes) {
   let calories;
   sex = sex.toLowerCase();
-  if( sex === "male")
+  if( sex === Sex.MALE)
     calories = timeInMinutes*((-55.0969 + (0.6309 * avgHeartRate) + (0.1988 * weight) + (0.2017 * age)) / 4.184);
-  else if (sex === "female")
+  else if (sex === Sex.FEMALE)
     calories = timeInMinutes*((-20.4022 + (0.4472 * avgHeartRate) - (0.1263 * weight) + (0.074 * age)) / 4.184);
   else
     throw new Error("Invalid value for sex parameter: "+ sex);
