@@ -1,15 +1,14 @@
 import { calcIntensity, calcHeartRateMax, calcHeartRateMin, calcAvgHeartRate, calcCaloriesBurnedPerTime, calcAgeFromBirthDate } from "./statsHandler.js";
 import { registerNewDevice } from "./phpConnector.js";
-import { MessageTypes } from "./messageTypes.js";
+import { MessageTypes,WorkoutTypes,Phases } from "./costantsHandler.js";
 
 const DEBUG = true;
 let clientState = {
-    foundDevices: [],   // [{ deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
-    selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, caloriesBurnt,hrBuffer[{ hr, timestamp }] }]  useful in training phase
+    foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
+    selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, caloriesBurnt,hrBuffer[{ hr, timestamp }] }]  useful in workout phase
+    workoutData:[]       // [{ startDate, endDate, intervalDuration}]                     useful in workout phase
 };
-const TEN_SEC = 1 * 10 * 1000; // 10 seconds in ms, for debugging purposes
-const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
-const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
+
 const ws = new WebSocket(`ws://${location.host}`);
 
 if (DEBUG) ws.onopen = () => log("Connesso al server");
@@ -33,26 +32,68 @@ ws.onmessage = e => {
             handleHeartRateMsg(msg);
             break;
         case MessageTypes.DEVICE_USER_INFO:
-            renderFoundDevice(msg.data.registered, msg.data.deviceId, msg.data.name, msg.data.surname);
+            //updating clientState.foundDevices
+            if (msg.data.registered === true) {
+                clientState.foundDevices.push({
+                    registered:msg.data.registered,
+                    deviceId: msg.data.deviceId,
+                    name: msg.data.name,
+                    surname: msg.data.surname,
+                    weight: msg.data.weight,
+                    height: msg.data.height,
+                    birthDate: msg.data.birthDate,
+                    sex: msg.data.sex
+                });
+            }
+            else{
+                clientState.foundDevices.push({
+                     registered:msg.data.registered,
+                    deviceId: msg.data.deviceId,
+                });
+            }
+            console.log("Updated found devices:", clientState.foundDevices);
+            const foundDevice = clientState.foundDevices.find(dev => dev.deviceId === msg.data.deviceId);
+            if(!foundDevice)
+            {
+                console.error("device with id " + msg.data.deviceId + " not found into clientState.foundDevices!");
+                return;
+            }
+            renderFoundDevice(foundDevice.registered, foundDevice.deviceId, foundDevice.name, foundDevice.surname);
             document.getElementById("button_startAttach").style.display = "block";
+
             sendToServer({ type: MessageTypes.UPDATE_FOUND_DEVICE, data: msg.data });
             break;
         case MessageTypes.CURRENT_SERVER_STATE:
             switch (msg.data.phase) {
-                case "scanning":
+                case Phases.SCANNING:
                     break;
-                case "selection":
+                case Phases.SELECTION:
                     if (DEBUG) console.log("found devices from server: ", msg);
-                    clientState.foundDevices = msg.data.foundDevices;
+                    if(msg.data.foundDevices.length > 0)    //for now the  serverstate at the start of the selection phase contains no foundDevices! 
+                        clientState.foundDevices = msg.data.foundDevices;
                     break;
-                case "training":
+                case Phases.WORKOUT:
                     clientState.selectedDevices = msg.data.selectedDevices;
+                    if(msg.data.workoutData.startDate == null){
+                        console.error("msg.data.workoutData.startDate empty!");
+                        break;
+                    }
+                    if(msg.data.workoutData.intervalDuration == null){
+                        console.error("msg.data.workoutData.intervalDuration empty!");
+                        break;
+                    }
+                    if(msg.data.workoutData.type == null){
+                        console.error("msg.data.workoutData.intervalDuration empty!");
+                        break;
+                    }
+                    clientState.workoutData.startDate = msg.data.workoutData.startDate; 
+                    clientState.workoutData.intervalDuration = msg.data.workoutData.intervalDuration; 
+                    clientState.workoutData.type = msg.data.workoutData.type;
                     //calculating hrMax and hrMin for all selectedDevices one time
                     for (const selectedDevice of clientState.selectedDevices) {
                         selectedDevice.hrMax = calcHeartRateMax(selectedDevice.birthDate);
                         selectedDevice.hrMin = calcHeartRateMin(selectedDevice.sex);
-                        if(selectedDevice.hrBuffer === undefined)
-                        {
+                        if (selectedDevice.hrBuffer == null) {
                             selectedDevice.hrBuffer = [];   //will contains tuples of { hr: number, timestamp: number } 
                         }
                     }
@@ -81,6 +122,10 @@ ws.onmessage = e => {
 function handleHeartRateMsg(msg) {
     const id = msg.data.DeviceId;
     if (id === 0) return; //ignore wildcard id
+    if(clientState.workoutData.intervalDuration == null){
+        console.error("clientState.workoutData.intervalDuration empty!");
+        return;
+    }
     const selectedDevice = clientState.selectedDevices.find(dev => dev.deviceId == String(id));
     if (selectedDevice) {
         const now = Date.now();
@@ -89,17 +134,17 @@ function handleHeartRateMsg(msg) {
         let avgHr = -1;
         let caloriesBurnt = -1;
         const intensity = calcIntensity(hr, selectedDevice.hrMax, selectedDevice.hrMin)
-        let timeBeforeCalculating;
-        if (DEBUG) timeBeforeCalculating = TEN_SEC;
-        else timeBeforeCalculating = ONE_MIN;
-        if (selectedDevice.hrBuffer.length > 0 && (now - selectedDevice.hrBuffer[0].timestamp) >= timeBeforeCalculating) {
+      
+        if (selectedDevice.hrBuffer.length > 0 && (now - selectedDevice.hrBuffer[0].timestamp) >= clientState.workoutData.intervalDuration) {
             avgHr = calcAvgHeartRate(selectedDevice.hrBuffer);
             if (DEBUG) console.log("frequency rate in one minute:", avgHr);
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
-            caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 1);
-            if (DEBUG) caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, 0.1);
-            if (DEBUG) console.log("Calories burned in one minute:", caloriesBurnt);
+            let intervalCaloriesBurnt = -1;
+            if (DEBUG) intervalCaloriesBurnt = 0.1;
+                else intervalCaloriesBurnt = 1;
+            caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, intervalCaloriesBurnt);
+            if (DEBUG) console.log("Calories burned in ten seconds:", caloriesBurnt);  //TODO more robust controls on intervalDuration numbers.
             if (selectedDevice.caloriesBurnt === undefined)
                 selectedDevice.caloriesBurnt = caloriesBurnt;
             else {
@@ -268,23 +313,23 @@ function renderDeviceStats(id, userName, userSurname, heartRate, intensity, calo
 
 function restoreUI(state) {//TODO
     switch (state.phase) {
-        case "scanning":
+        case Phases.SCANNING:
             // Nothing to restore in scanning phase
             break;
-        case "selection":
+        case Phases.SELECTION:
             // if(DEBUG) console.log("Restoring selection UI...");
             // renderSelectionUI();
             break;
-        case "training":
-            if (DEBUG) console.log("Restoring training UI...");
-            renderTrainingUI();
+        case Phases.WORKOUT:
+            if (DEBUG) console.log("Restoring workout UI...");
+            renderWorkoutUI();
             break;
         default:
             console.error("Invalid phase:", state.phase);
     }
 }
 
-function renderTrainingUI() {
+function renderWorkoutUI() {
     //removing elements
     const headerFoundDevices = document.getElementById("found-devices-header");
     if (!headerFoundDevices) {
@@ -316,7 +361,11 @@ function renderTrainingUI() {
         logContainer.insertAdjacentElement("afterend", divSelectedDevices);
     }
 
-    if (DEBUG) console.log("training UI updated");
+    let btnEndWorkout = document.createElement("button");
+    btnEndWorkout.textContent = "Termina workout";
+    btnEndWorkout.addEventListener("click", (event) => btnEndWorkout_onClick(event));
+    divSelectedDevices.insertAdjacentElement("afterend",btnEndWorkout);
+    if (DEBUG) console.log("workout UI updated");
 }
 
 function showRegistrationPopup(onSubmitCallback) {
@@ -449,6 +498,13 @@ function button_registraOnClick(event) {
     });
 }
 
+function btnEndWorkout_onClick(event) {
+    const button = event.target;
+    sendToServer({type: MessageTypes.END_WORKOUT, data: clientState.selectedDevices});
+
+    
+
+}
 //////////////////////////////////////// SCRAPING FUNCTIONS ////////////////////////////////////////
 function scrapeSelectedDeviceIds() {
     let selectedDeviceIds = [];
