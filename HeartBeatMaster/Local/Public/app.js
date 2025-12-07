@@ -6,7 +6,7 @@ const DEBUG = true;
 let clientState = {
     foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
     selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, caloriesBurnt,hrBuffer[{ hr, timestamp }] }]  useful in workout phase
-    workoutData:[]       // [{ startDate, endDate, intervalDuration}]                     useful in workout phase
+    workoutData:{}       // { startDate, endDate, intervalDuration}                     useful in workout phase
 };
 
 const ws = new WebSocket(`ws://${location.host}`);
@@ -137,7 +137,7 @@ function handleHeartRateMsg(msg) {
       
         if (selectedDevice.hrBuffer.length > 0 && (now - selectedDevice.hrBuffer[0].timestamp) >= clientState.workoutData.intervalDuration) {
             avgHr = calcAvgHeartRate(selectedDevice.hrBuffer);
-            if (DEBUG) console.log("frequency rate in one minute:", avgHr);
+            if (DEBUG) console.log("frequency rate ten seconds:", avgHr);
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
             let intervalCaloriesBurnt = -1;
@@ -363,7 +363,7 @@ function renderWorkoutUI() {
 
     let btnEndWorkout = document.createElement("button");
     btnEndWorkout.textContent = "Termina workout";
-    btnEndWorkout.addEventListener("click", (event) => btnEndWorkout_onClick(event));
+    btnEndWorkout.addEventListener("click", btnEndWorkout_onClick);
     divSelectedDevices.insertAdjacentElement("afterend",btnEndWorkout);
     if (DEBUG) console.log("workout UI updated");
 }
@@ -498,9 +498,11 @@ function button_registraOnClick(event) {
     });
 }
 
-function btnEndWorkout_onClick(event) {
-    const button = event.target;
-    sendToServer({type: MessageTypes.END_WORKOUT, data: clientState.selectedDevices});
+function btnEndWorkout_onClick() {
+    const ts = Date.now();
+    const endDateWorkout = new Date(ts);
+    clientState.workoutData.endDate = endDateWorkout;
+    sendToServer({type: MessageTypes.END_WORKOUT, data: {endDateWorkout}});
 
     
 
