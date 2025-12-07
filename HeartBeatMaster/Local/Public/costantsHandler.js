@@ -12,6 +12,24 @@ export const MessageTypes = Object.freeze({
     UPDATE_SELECTED_DEVICE: "UPDATE_SELECTED_DEVICE",       //received from server then forwarded to antManager
     AVG_DEVICE_DATA:        "AVG_DEVICE_DATA",              //received from server
     SHUTDOWN:               "SHUTDOWN",                     //received from server
+    END_WORKOUT:            "END_WORKOUT",                  //received from server        
+    
     //sent by server
     CURRENT_SERVER_STATE:  "CURRENT_SERVER_STATE"           //received from app
+});
+
+export const Phases = Object.freeze({
+    SCANNING:   "SCANNING",
+    SELECTION:  "SELECTION",
+    WORKOUT:    "WORKOUT"
+});
+
+export const Sex = Object.freeze({
+    MALE:   "male", 
+    FEMALE: "female"
+});
+
+export const WorkoutTypes = Object.freeze({
+    INTERVAL:   "INTERVAL",
+    CONTINUOUS: "CONTONUOUS"
 });
