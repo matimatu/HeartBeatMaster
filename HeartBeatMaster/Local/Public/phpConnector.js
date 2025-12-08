@@ -263,7 +263,6 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 	return result;
 }
 
-
 /**
  * Save workout data to the remote PHP API
  * 
@@ -300,34 +299,18 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 				return false;
 			}
 			const tmp = new Date(startDate);
-			startDate = tmp.toISOString();
+			startDate = tmp.toMySQLLocalDateTime();
 		}
 		else{
-			startDate = startDate.toISOString();
+			startDate = toMySQLLocalDateTime(startDate);
 		}
 	}
 	else{
 		console.error('saveWorkoutData: startDate is null');
 		return false;
 	}
-	
-	if(endDate != null)	{
-		if(typeof endDate === 'string') {
-			if (endDate.trim() === '') {
-				console.error('saveWorkoutData: endDate must be a non-empty string: ');
-				return false;
-			}
-			const tmp = new Date(endDate);
-			endDate = tmp.toISOString();
-		}
-		else{
-			endDate = endDate.toISOString();
-		}
-	}
-	else{
-		console.error('saveWorkoutData: endDate is null');
-		return false;
-	}
+	startDate = checkAndFormatDate(startDate);
+	endDate = 	checkAndFormatDate(endDate);
 
 	if (intervalDuration == null || !Number.isInteger(Number(intervalDuration)) || Number(intervalDuration) <= 0) {
 		console.error('saveWorkoutData: intervalDuration must be a positive integer');
@@ -338,9 +321,7 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 		console.error('saveWorkoutData: workoutType must be a non-empty string');
 		return false;
 	}
-
-	startDate 	= toMySQLDateTime(startDate);
-	endDate 	= toMySQLDateTime(endDate);
+	
 	const url = 'http://localhost/HeartBeatMaster/OnlineSite/API/save-workout-data.php';
 	const timeoutMs = 8000;
 
@@ -423,7 +404,34 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 	}
 }
 
+function checkAndFormatDate(date){
+if(date != null)	{
+		if(typeof date === 'string') {
+			if (date.trim() === '') {
+				console.error('saveWorkoutData: date must be a non-empty string: ');
+				return null;
+			}
+			const tmp = new Date(date);
+			date = toMySQLLocalDateTime(tmp);
+		}
+		else {
+			date = toMySQLLocalDateTime(date);
+		}
+	}
+	else{
+		console.error('saveWorkoutData: date is null');
+		return null;
+	}
+	return date;
+}
 
-function toMySQLDateTime(dateISO_string) {
-    return dateISO_string.replace('T', ' ').replace('Z', '').split('.')[0];
+function toMySQLLocalDateTime(date) {
+    const pad = n => n < 10 ? '0' + n : n;
+
+    return date.getFullYear() + '-' +
+        pad(date.getMonth() + 1) + '-' +
+        pad(date.getDate()) + ' ' +
+        pad(date.getHours()) + ':' +
+        pad(date.getMinutes()) + ':' +
+        pad(date.getSeconds());
 }
