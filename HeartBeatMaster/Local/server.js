@@ -2,7 +2,7 @@ import express from "express";
 import { WebSocketServer } from "ws";
 import http from "http";
 import { startAntManager, setWsConnection, handleAppMessage, closeStick } from "./ANT/antManager.js";
-import { MessageTypes,WorkoutTypes,Phases } from "./Public/costantsHandler.js";
+import { MessageTypes, WorkoutTypes, Phases } from "./Public/costantsHandler.js";
 import { saveWorkoutData } from "./Public/phpConnector.js";
 import fs from "fs";
 import path from "path";
@@ -27,7 +27,7 @@ const serverState = {
     phase: Phases.SCANNING,      // Phases.SCANNING | Phases.SELECTION | Phases.WORKOUT
     foundDevices: [],       // [{ registered, deviceId, name, surname, weight, birthDate, sex }]           useful in scanning and selection phases
     selectedDevices: [],    // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]   useful in workout phase
-    workoutData:{}              // { startDate, endDate, intervalDuration, type}                     useful in workout phase
+    workoutData: {}              // { startDate, endDate, intervalDuration, type}                     useful in workout phase
 };
 
 app.use(express.static("public"));
@@ -47,7 +47,7 @@ wss.on("connection", (ws) => {
 
     startAntManager();
 
-    ws.onmessage = e  =>  {
+    ws.onmessage = e => {
         try {
             const msg = JSON.parse(e.data);
             if (DEBUG)
@@ -117,15 +117,15 @@ wss.on("connection", (ws) => {
                 case MessageTypes.END_WORKOUT:
                     console.log("\nServer-> ordering to ANTManager to close the stick...");
                     closeStick();
-                    if(msg.data.endDateWorkout == null){
+                    if (msg.data.endDateWorkout == null) {
                         console.error("Server-> END_WORKOUT message missing endDateWorkout data");
                         break;
                     }
-                     if(serverState.workoutData.type == null){
+                    if (serverState.workoutData.type == null) {
                         console.error("Server-> END_WORKOUT serverState missing type data");
                         break;
                     }
-                    if(serverState.workoutData.startDate == null){
+                    if (serverState.workoutData.startDate == null) {
                         console.error("Server-> END_WORKOUT serverState missing startDate data");
                         break;
                     }
@@ -136,15 +136,15 @@ wss.on("connection", (ws) => {
                         var raw = fs.readFileSync(filePath, "utf-8");
                         data = JSON.parse(raw);
                     }
-                    saveWorkoutData(data,serverState.workoutData.startDate,serverState.workoutData.endDate,
-                        serverState.workoutData.intervalDuration,serverState.workoutData.type)
+                    saveWorkoutData(data, serverState.workoutData.startDate, serverState.workoutData.endDate,
+                        serverState.workoutData.intervalDuration, serverState.workoutData.type)
                         .then(result => {
                             if (result) {
-                                if(DEBUG) console.log("Server-> Workout data saved successfully");
-                                sendToClient(clientSocket,MessageTypes.WORKOUT_SAVE_RESULT, {success: true,result});
+                                if (DEBUG) console.log("Server-> Workout data saved successfully");
+                                sendToClient(clientSocket, MessageTypes.WORKOUT_SAVE_RESULT, { success: true, result });
                             } else {
                                 console.error("Server-> Failed to save workout data");
-                                sendToClient(clientSocket,MessageTypes.WORKOUT_SAVE_RESULT, {success: false});
+                                sendToClient(clientSocket, MessageTypes.WORKOUT_SAVE_RESULT, { success: false });
                             }
                         })
                         .catch(err => {
@@ -181,7 +181,7 @@ export function setPhase(newPhase) {
         case Phases.SELECTION:
             break;
         case Phases.WORKOUT:
-              const ts = Date.now();
+            const ts = Date.now();
             const startDateWorkout = new Date(ts);
             serverState.workoutData.startDate = startDateWorkout;     //TODO render UI to select when start the workout
             serverState.workoutData.intervalDuration = (DEBUG) ? FIVE_SEC : ONE_MIN;
@@ -206,9 +206,9 @@ function sendStateToClient(ws) {
 
 }
 
-function sendToClient(ws,messageType,data) {
+function sendToClient(ws, messageType, data) {
     if (ws && ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: messageType, data: data}));
+        ws.send(JSON.stringify({ type: messageType, data: data }));
         if (DEBUG) console.log(`Server -> sent message type ${messageType} to client`)
     }
     else
@@ -217,27 +217,33 @@ function sendToClient(ws,messageType,data) {
 }
 
 function shutdown() {   //TODO  add a deadline if the server doesn't stop
-    console.log("\nServer-> Shutting down...");
+    console.warn("\nServer-> Shutting down...");
     console.log("\nServer-> ordering to ANTManager to detach all devices...");
     closeStick();
-    
-    console.log("Server-> Clearing JSON data file...");
-    clearDeviceData_JSON();
-    sendToClient(clientSocket,MessageTypes.SERVER_CLOSING);
-    console.log("\nServer-> closing WebSocket server...");
-    //close the web socket server
-    wss.clients.forEach(client => {
-        try {
-            client.close();
-        } catch (err) {
-            console.error("Error closing client:", err);
-        }
-    });
+    if(serverState.phase === Phases.SCANNING || serverState.phase === Phases.SELECTION)
+        console.log("Server-> JSON data file already empty");
+    else {
+        console.log("Server-> clearing JSON data file...");
+        clearDeviceData_JSON();
+    }
+    if (clientSocket == null)
+        console.log("Server-> Websocket already closed");
+    else {
+        sendToClient(clientSocket, MessageTypes.SERVER_CLOSING);
+        console.log("Server-> closing WebSocket server...");
+        //close the web socket server
+        wss.clients.forEach(client => {
+            try {
+                client.close();
+            } catch (err) {
+                console.error("Error closing client:", err);
+            }
+        });
 
-    wss.close(() => {
-        console.log("Server-> WebSocket server closed");
-    });
-
+        wss.close(() => {
+            console.log("Server-> WebSocket server closed");
+        });
+    }
     // 2)close the http server
     server.close(() => {
         console.log("Server-> HTTP server closed");
