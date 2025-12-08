@@ -12,6 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 //interval durations
+const FIVE_SEC = 1 * 5 * 1000; // 5 seconds in ms, for debugging purposes
 const TEN_SEC = 1 * 10 * 1000; // 10 seconds in ms, for debugging purposes
 const ONE_MIN = 1 * 60 * 1000; // 1 minutes in ms
 const FIVE_MIN = 5 * 60 * 1000; // 5 minutes in ms
@@ -140,8 +141,10 @@ wss.on("connection", (ws) => {
                         .then(result => {
                             if (result) {
                                 if(DEBUG) console.log("Server-> Workout data saved successfully");
+                                sendToClient(clientSocket,MessageTypes.WORKOUT_SAVE_RESULT, {success: true,result});
                             } else {
                                 console.error("Server-> Failed to save workout data");
+                                sendToClient(clientSocket,MessageTypes.WORKOUT_SAVE_RESULT, {success: false});
                             }
                         })
                         .catch(err => {
@@ -149,7 +152,7 @@ wss.on("connection", (ws) => {
                         });
                     break;
                 case MessageTypes.SHUTDOWN:
-                    console.log("Server-> Shutting down...")
+                    console.log("Server-> received message to shutdown...")
                     shutdown();
                     break;
                 default:
@@ -181,7 +184,7 @@ export function setPhase(newPhase) {
               const ts = Date.now();
             const startDateWorkout = new Date(ts);
             serverState.workoutData.startDate = startDateWorkout;     //TODO maybe move the initialization of startDate in a more precise place
-            serverState.workoutData.intervalDuration = (DEBUG) ? TEN_SEC : ONE_MIN;
+            serverState.workoutData.intervalDuration = (DEBUG) ? FIVE_SEC : ONE_MIN;
             serverState.workoutData.type = WorkoutTypes.INTERVAL;       //TODO UI to select different types
             break;
         default:
@@ -203,14 +206,24 @@ function sendStateToClient(ws) {
 
 }
 
+function sendToClient(ws,messageType,data) {
+    if (ws && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: messageType, data: data}));
+        if (DEBUG) console.log(`Server -> sent message type ${messageType} to client`)
+    }
+    else
+        console.error(`\nws error, unable to send message type ${messageType} to client!`);
+
+}
+
 function shutdown() {   //TODO  add a deadline if the server doesn't stop
     console.log("\nServer-> Shutting down...");
     console.log("\nServer-> ordering to ANTManager to detach all devices...");
     closeStick();
-
+    
     console.log("Server-> Clearing JSON data file...");
     clearDeviceData_JSON();
-
+    sendToClient(clientSocket,MessageTypes.SERVER_CLOSING);
     console.log("\nServer-> closing WebSocket server...");
     //close the web socket server
     wss.clients.forEach(client => {
