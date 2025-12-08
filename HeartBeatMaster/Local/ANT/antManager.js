@@ -68,12 +68,16 @@ export async function startAntManager() {
                 {
                     data = "Errore sul sito: Sito non raggiungibile!";
                 }
+                else if(msg.includes("No device IDs provided"))
+                {
+                    data = "Nessun dispositivo da controllare!";
+                }
                 else
                 {
                     data = "Unknown error:" + msg;
                 }
                 console.log("Sending error to client...");
-                sendToClient({type: MessageTypes.ERROR,data})
+                sendToClient({type: MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS,data})
                 return;
             }
             displayResults(result);
@@ -151,8 +155,8 @@ async function initializeAntStick() {
 }
 async function checkForDeviceUsers(ids) {
     if (ids.length === 0) {
-        console.log("ANTManager-> No device found, couldn't check for users.");
-        process.exit(0);
+        console.log("ANTManager-> No device id provided from app!");
+        throw new Error("No device IDs provided");
     }
     let stringIds = ids.map(String);
     console.log("ANTManager-> Sending device IDs with API:", stringIds);
@@ -163,6 +167,11 @@ async function checkForDeviceUsers(ids) {
 
 async function attachSelectedDevices(ids) {
     let nextChannelAvailable = 0;
+    if(ids.length === 0) {
+        console.log("ANTManager-> No devices selected to attach.");
+        //TODO send message to client
+        return false;
+    }
     console.log("\nANTManager-> Attaching to selected devices...");
     console.log(ids.length + " devices to attach to.");
     for (const deviceId of ids) {
@@ -254,21 +263,24 @@ export async function closeStick(){
     try{
         if(!stick) {
             console.log("ANTManager-> Stick not yet existing so no problem.");
-            return;
+            return true;
         }
         if (stickOpened)
         {
             await stick.close();
             console.log("ANTManager-> Stick closed.");
             stickOpened = false;
+            return true;
         }
         else
         {
             console.log("ANTManager-> Stick already closed.");
+            return true;
         }
     }catch(err)
     {
-        console.log("ANTManager-> error on trying to close the stick", err);
+        console.error("ANTManager-> error on trying to close the stick", err);
+        return false;
     }
 }
 

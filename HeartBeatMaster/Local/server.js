@@ -183,7 +183,7 @@ export function setPhase(newPhase) {
         case Phases.WORKOUT:
               const ts = Date.now();
             const startDateWorkout = new Date(ts);
-            serverState.workoutData.startDate = startDateWorkout;     //TODO maybe move the initialization of startDate in a more precise place
+            serverState.workoutData.startDate = startDateWorkout;     //TODO render UI to select when start the workout
             serverState.workoutData.intervalDuration = (DEBUG) ? FIVE_SEC : ONE_MIN;
             serverState.workoutData.type = WorkoutTypes.INTERVAL;       //TODO UI to select different types
             break;

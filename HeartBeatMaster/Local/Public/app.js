@@ -117,13 +117,16 @@ ws.onmessage = e => {
             }
             break;
         case MessageTypes.SERVER_CLOSING:
-            if (DEBUG) console.log(MessageTypes.SERVER_CLOSING + "received from server: ", msg);
-            renderServerClosed();       //TODO
+            if (DEBUG) console.log(MessageTypes.SERVER_CLOSING + " received from server: ", msg);
+            renderServerClosed();
             break;
-        case MessageTypes.ERROR:
-            if (DEBUG) console.log("Errore ricevuto da ANTManager");
-            //TODO gestire NO_DEVICES_FOUND
-            log(msg.data);
+        case MessageTypes.NO_DEVICES_FOUND:
+            if (DEBUG) console.log(MessageTypes.SERVER_CLOSING + " received from ANTManager: ", msg);
+
+            break;
+        case MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS:
+            if (DEBUG) console.log(MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS + " received from ANTManager: ", msg);
+            log("ANtManager: " + msg.data);
             sendToServer({ type: MessageTypes.SHUTDOWN, data: msg.data });
             break;
         default:
@@ -279,6 +282,10 @@ function renderStartAttachButton() {
 
         button.addEventListener("click", () => {
             let selectedDeviceIds = scrapeSelectedDeviceIds();
+            if(selectedDeviceIds.length === 0) {
+                showWarningPopup("Selezionare almeno un partecipante da monitorare!");
+                return;
+            }
             console.log("Sending selected devices to server...");
             sendToServer({ type: MessageTypes.UPDATE_SELECTED_DEVICE, data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
         });
@@ -446,6 +453,53 @@ function removeSelectionUI(){
     if(tableFoundDevices) {
         tableFoundDevices.remove();
     }
+}
+
+/**
+ * Show a simple warning popup with a message and an OK button
+ * Useful for validation errors or warnings
+ */
+function showWarningPopup(message) {
+    // Remove previous warning if exists
+    const old = document.getElementById("warning-popup");
+    if (old) old.remove();
+
+    // Overlay
+    const overlay = document.createElement("div");
+    overlay.id = "warning-popup";
+    overlay.className = "popup-overlay";
+
+    // Box
+    const box = document.createElement("div");
+    box.className = "popup-box";
+
+    // Title (warning style)
+    const title = document.createElement("h3");
+    title.textContent = "Attenzione";
+    box.appendChild(title);
+
+    // Close button
+    const closeBtn = document.createElement("span");
+    closeBtn.className = "popup-close-btn";
+    closeBtn.textContent = "✕";
+    closeBtn.onclick = () => overlay.remove();
+    box.appendChild(closeBtn);
+
+    // Message
+    const msg = document.createElement("p");
+    msg.className = "popup-message";
+    msg.textContent = message;
+    box.appendChild(msg);
+
+    // OK Button
+    const okBtn = document.createElement("button");
+    okBtn.textContent = "OK";
+    okBtn.className = "popup-submit-btn";
+    okBtn.onclick = () => overlay.remove();
+    box.appendChild(okBtn);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
 }
 
 function showRegistrationPopup(onSubmitCallback) {
