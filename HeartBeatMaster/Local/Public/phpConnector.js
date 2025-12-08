@@ -353,7 +353,7 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 
 	let resp;
 	try {
-		if (DEBUG) console.log('saveWorkoutData -> POST', url, 'with body:', body);
+		if (DEBUG) console.log('saveWorkoutData -> POST', url, 'with body:', JSON.parse(body), "\n");
 		resp = await fetchImpl(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
