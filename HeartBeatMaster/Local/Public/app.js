@@ -106,8 +106,23 @@ ws.onmessage = e => {
                 console.log("clientState updated:", clientState, msg.data.phase);
             restoreUI(msg.data);   //TODO handle restoration of UI based on current state
             break;
+        case MessageTypes.WORKOUT_SAVE_RESULT:
+            if (DEBUG) console.log(MessageTypes.WORKOUT_SAVE_RESULT + " received from server: ", msg);
+            if(msg.data.success == true) {
+                log("workout salvato correttamente!");
+                renderWorkoutDataSaved();
+            }
+            else {
+                log("workout non salvato!!");
+            }
+            break;
+        case MessageTypes.SERVER_CLOSING:
+            if (DEBUG) console.log(MessageTypes.SERVER_CLOSING + "received from server: ", msg);
+            renderServerClosed();       //TODO
+            break;
         case MessageTypes.ERROR:
             if (DEBUG) console.log("Errore ricevuto da ANTManager");
+            //TODO gestire NO_DEVICES_FOUND
             log(msg.data);
             sendToServer({ type: MessageTypes.SHUTDOWN, data: msg.data });
             break;
@@ -137,14 +152,14 @@ function handleHeartRateMsg(msg) {
       
         if (selectedDevice.hrBuffer.length > 0 && (now - selectedDevice.hrBuffer[0].timestamp) >= clientState.workoutData.intervalDuration) {
             avgHr = calcAvgHeartRate(selectedDevice.hrBuffer);
-            if (DEBUG) console.log("frequency rate ten seconds:", avgHr);
+            if (DEBUG) console.log("frequency rate in five seconds:", avgHr);
 
             const age = calcAgeFromBirthDate(selectedDevice.birthDate);
             let intervalCaloriesBurnt = -1;
             if (DEBUG) intervalCaloriesBurnt = 0.1;
                 else intervalCaloriesBurnt = 1;
             caloriesBurnt = calcCaloriesBurnedPerTime(selectedDevice.sex, selectedDevice.weight, avgHr, age, intervalCaloriesBurnt);
-            if (DEBUG) console.log("Calories burned in ten seconds:", caloriesBurnt);  //TODO more robust controls on intervalDuration numbers.
+            if (DEBUG) console.log("Calories burned in five seconds:", caloriesBurnt);  //TODO more robust controls on intervalDuration numbers.
             if (selectedDevice.caloriesBurnt === undefined)
                 selectedDevice.caloriesBurnt = caloriesBurnt;
             else {
@@ -190,22 +205,19 @@ function log(msg) {
 };
 
 function renderFoundDevice(isRegistered, deviceId, nome, cognome) {
-
     let header = document.getElementById("found-devices-header");
-    if (!header) { //if header doesn't exist -> create it
+    if (!header) {
         header = document.createElement("h2");
         header.id = "found-devices-header";
-        // header.style.display = "block"; 
         header.textContent = "Dispositivi trovati";
         const logContainer = document.getElementById("log-container");
         logContainer.insertAdjacentElement("afterend", header);
     }
     let table = document.querySelector(".found-devices");
-    if (!table) { //if table doesn't exist -> create it
+    if (!table) {
         table = document.createElement("table");
         table.className = "found-devices animation-popup";
 
-        // Crea l'header della tabella
         const headerRow = document.createElement("tr");
         const headers = ["DeviceID", "Nome", "Seleziona"];
         headers.forEach(text => {
@@ -215,8 +227,6 @@ function renderFoundDevice(isRegistered, deviceId, nome, cognome) {
         });
 
         table.appendChild(headerRow);
-
-        // insert table on DOM under div or h2 header
         header.insertAdjacentElement("afterend", table);
 
         setTimeout(() => {
@@ -363,9 +373,79 @@ function renderWorkoutUI() {
 
     let btnEndWorkout = document.createElement("button");
     btnEndWorkout.textContent = "Termina workout";
+    btnEndWorkout.id = "btn_endWorkout";
     btnEndWorkout.addEventListener("click", btnEndWorkout_onClick);
     divSelectedDevices.insertAdjacentElement("afterend",btnEndWorkout);
     if (DEBUG) console.log("workout UI updated");
+}
+
+/**
+ * Called after the server confirms the workout data was saved.
+ * - Removes btn_endWorkout
+ * - Removes the device stat divs
+ * - Shows a friendly confirmation box "Dati workout salvati"
+ * The visual style follows the existing render functions (uses .device and animation-popup).
+ */
+function renderWorkoutDataSaved() {
+    removeWorkoutUI();
+    const prev = document.getElementById("workout-saved");
+    if (prev) prev.remove();
+
+    const saved = document.createElement("div");
+    saved.id = "workout-saved";
+    saved.className = "device animation-popup";
+    saved.textContent = "Dati workout salvati";
+
+    const logContainer = document.getElementById("log-container");
+    if (logContainer) {
+        logContainer.insertAdjacentElement("afterend", saved);
+    } else {
+        document.body.appendChild(saved);
+    }
+    setTimeout(() => saved.classList.add("show"), 50);
+}
+
+function renderServerClosed(){
+    removeSelectionUI();
+    removeWorkoutUI();
+
+    const prev = document.getElementById("server-closed");
+    if (prev) prev.remove();
+
+    const saved = document.createElement("div");
+    saved.id = "server-closed";
+    saved.className = "device animation-popup";
+    saved.textContent = "Server non raggiungibile";
+
+    const logContainer = document.getElementById("log-container");
+    if (logContainer) {
+        logContainer.insertAdjacentElement("afterend", saved);
+    } else {
+        document.body.appendChild(saved);
+    }
+    setTimeout(() => saved.classList.add("show"), 50);
+}
+
+function removeWorkoutUI() {
+    const btn_endWorkout = document.querySelector("#btn_endWorkout");
+    if(btn_endWorkout) btn_endWorkout.remove();
+    
+    const selectedDevicesContainer = document.getElementById("selected-devices-container");
+    if (selectedDevicesContainer) selectedDevicesContainer.remove();
+}
+
+function removeSelectionUI(){
+    const btn_AttachSelectedDevices = document.querySelector("#button_startAttach");
+    if(btn_AttachSelectedDevices) btn_AttachSelectedDevices.remove();
+
+    const headerFoundDevices = document.querySelector("#found-devices-header");
+    if(headerFoundDevices) {
+        headerFoundDevices.remove();
+    }
+    const tableFoundDevices = document.querySelector(".found-devices");
+    if(tableFoundDevices) {
+        tableFoundDevices.remove();
+    }
 }
 
 function showRegistrationPopup(onSubmitCallback) {
@@ -503,14 +583,11 @@ function btnEndWorkout_onClick() {
     const endDateWorkout = new Date(ts);
     clientState.workoutData.endDate = endDateWorkout;
     sendToServer({type: MessageTypes.END_WORKOUT, data: {endDateWorkout}});
-
-    
-
 }
 //////////////////////////////////////// SCRAPING FUNCTIONS ////////////////////////////////////////
 function scrapeSelectedDeviceIds() {
     let selectedDeviceIds = [];
-    const table = document.getElementsByClassName("found-devices")[0];
+    const table = document.querySelector(".found-devices");
     const rows = table.querySelectorAll("tr");
     rows.forEach(row => {
         if (row.rowIndex === 0) return; //skip header row
