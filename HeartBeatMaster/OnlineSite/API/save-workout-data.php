@@ -88,7 +88,7 @@ try {
         $userName = $deviceData['name'];
         $userSurname = $deviceData['surname'];
         $avgHeartRates = $deviceData['avgHeartRatePerMin'];
-        $caloriesBurnt = $deviceData['caloriesBurntPerMin'];
+        $caloriesBurntArray = $deviceData['caloriesBurntPerMin'];
         $intensities = $deviceData['intensityPerMin'];
 
         // STEP 3a: Find the fasce (device) by chiave
@@ -140,7 +140,7 @@ try {
         for ($i = 0; $i < count($avgHeartRates); $i++) {
             $intervalNumber = $i + 1; // Intervals are 1-indexed
             $hr = intval($avgHeartRates[$i]);
-            $caloriesBurnt = floatval($caloriesBurnt[$i]);
+            $caloriesBurnt = floatval($caloriesBurntArray[$i]);
             $intensity = floatval($intensities[$i]);
 
             $success = createDatiworkout(
