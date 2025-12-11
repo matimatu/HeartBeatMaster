@@ -175,7 +175,7 @@ button:disabled {
   width: 85%;
   max-width: 300px;
   margin-top: 10px;
-  display: block;
+  /* display: block; */
 }
 
 .popup-api-error {

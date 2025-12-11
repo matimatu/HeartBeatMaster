@@ -2,7 +2,7 @@
 import * as Ant from "ant-plus-next";
 import { queryDeviceOwners } from "../Public/phpConnector.js";
 import { setPhase } from "../server.js";
-import { MessageTypes,Phases,Sex } from "../Public/costantsHandler.js";
+import { MessageTypes, Phases, Sex } from "../Public/costantsHandler.js";
 let stick = null;
 let stickOpened = false;
 let wsClient = null;
@@ -27,7 +27,7 @@ export async function startAntManager() {
         console.error("Errore sull'apertura dello stick:", err);
         process.exit(1);
     }
-    
+
     //start scanning for heart rate monitors
     let ids = [];
     const hrScanner = new Ant.HeartRateScanner(stick);
@@ -52,10 +52,10 @@ export async function startAntManager() {
             console.log("scanner detached");
             sendToClient({ type: MessageTypes.SCAN_RESULT, data: ids });
             let result;
-            try{
-               result  = await checkForDeviceUsers(ids);
+            try {
+                result = await checkForDeviceUsers(ids);
             }
-            catch(err){
+            catch (err) {
                 console.error("Error on checkForDeviceUsers", err)
                 const msg = err.message || "";
                 let data = "";
@@ -64,27 +64,24 @@ export async function startAntManager() {
                 if (isSqlStateError && isConnectionRefused) {
                     data = "Errore DB: Impossibile stabilire la connessione al database!";
                 }
-                else if(msg.includes("fetch failed"))
-                {
+                else if (msg.includes("fetch failed")) {
                     data = "Errore sul sito: Sito non raggiungibile!";
                 }
-                else if(msg.includes("No device IDs provided"))
-                {
+                else if (msg.includes("No device IDs provided")) {
                     data = "Nessun dispositivo da controllare!";
                 }
-                else
-                {
+                else {
                     data = "Unknown error:" + msg;
                 }
                 console.log("Sending error to client...");
-                sendToClient({type: MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS,data})
+                sendToClient({ type: MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS, data })
                 return;
             }
             displayResults(result);
             setPhase(Phases.SELECTION);      //TODO for now is useless,since the server has FoundDevices empty
         });
 
-    }, 2000);
+    }, 1000);
 
     // When the stick is ready, start scanning
     stick.on("startup", () => {
@@ -108,35 +105,44 @@ export async function startAntManager() {
 /////////////////////////////////////////////// FUNCTIONS ///////////////////////////////////////////////
 
 export function setWsConnection(ws) {
-  wsClient = ws;
+    wsClient = ws;
 }
 
 function sendToClient(obj) {
-  if (wsClient && wsClient.readyState === wsClient.OPEN) {
-    wsClient.send(JSON.stringify(obj));
-    if(DEBUG) console.log("ANT-> send to client",obj)
-  }
+    if (wsClient && wsClient.readyState === wsClient.OPEN) {
+        wsClient.send(JSON.stringify(obj));
+        if (DEBUG) console.log("ANT-> send to client", obj)
+    }
 }
 
 export async function handleAppMessage(msg) {
-  switch (msg.type) {
-    case MessageTypes.UPDATE_SELECTED_DEVICE:
-        console.log("ANTManager-> List of selected devices received from app:", msg.data);
-        let result = await attachSelectedDevices(msg.data);
-        if (result) {
-            if(DEBUG) {           
+    switch (msg.type) {
+        case MessageTypes.UPDATE_SELECTED_DEVICE:
+            console.log("ANTManager-> List of selected devices received from app:", msg.data);
+            let errorCode = await attachSelectedDevices(msg.data);
+            if (errorCode == "") {
+                // if (DEBUG) {
                 console.log("ANTManager-> Successfully attached to all selected devices.");
                 console.log("Entering workout phase...");
+                // }
+                setPhase(Phases.WORKOUT);
             }
-            setPhase(Phases.WORKOUT);
-        } else {
-        console.error("ANTManager-> Failed to attach to all selected devices.");
-        }
-      break;
+            else {
+                switch (errorCode) {
+                    case "WARMUP_TIMEOUT":
+                        console.log("ANTManager-> Trying to continue to workout anyway...");
+                        setPhase(Phases.WORKOUT);
+                        break;
+                    default:
+                        console.error("ANTManager-> Failed to attach to all devices!");
+                        break;
+                }
+            }
+            break;
 
-    default:
-      console.error("ANTManager-> Command not recognised", msg);
-  }
+        default:
+            console.error("ANTManager-> Command not recognised", msg);
+    }
 }
 
 async function initializeAntStick() {
@@ -166,119 +172,241 @@ async function checkForDeviceUsers(ids) {
 }
 
 async function attachSelectedDevices(ids) {
-    let nextChannelAvailable = 0;
-    if(ids.length === 0) {
+    let channel = 0;
+    let promises = [];
+    if (ids.length === 0) {
         console.log("ANTManager-> No devices selected to attach.");
         //TODO send message to client
-        return false;
+        return "NO_SELECTED_DEVICES";
     }
     console.log("\nANTManager-> Attaching to selected devices...");
     console.log(ids.length + " devices to attach to.");
     for (const deviceId of ids) {
         console.log("\nANTManager-> Attaching to device:", deviceId);
-        try {
-            await attachToDevice(nextChannelAvailable, deviceId); 
-        } catch (error) {
-            console.error(`ANTManager-> Failed to attach to device ${deviceId}:`, error.message);
-            console.log("ANTManager-> Trying wildcard attach...");
-            try {
-                await attachToDevice(nextChannelAvailable, 0); //tryng wildcard attach
-                
-            } catch (error) {
-                console.error(`ANTManager-> Wildcard attach also failed for device ${deviceId}:`, error.message);
-                return false;
-            }
-        }
-        
-        nextChannelAvailable++;
-        if (nextChannelAvailable >= stick.maxChannels) {
-            console.log("ANTManager-> Max channels reached, cannot attach to more devices.");
-            return false;
+        promises.push(attachDevice(deviceId, channel));
+        if (checkDeviceIsDirectAttach(deviceId)) {
+            channel += 1;  // only one channel for the specific attach
+        } else {
+            channel += 2;  // 2 channels for warmup + specific attach
         }
     }
-    return true;
+    if (channel >= stick.maxChannels) {
+        console.log("ANTManager-> Max channels reached, cannot attach to more devices.");
+        return "MAX_CHANNELS_REACHED";
+    }
+    try {
+        await Promise.all(promises);
+        console.log("AttachSelectedDevices", "bulk attach ended! ALL DEVICES ATTACHED");
+    } catch (err) {
+        console.log("AttachSelectedDevices", `catched error ${err.message} `);
+        return err.message;
+    }
+    return "";
 }
 
-/**
- * Attaches to a specific ANT+ heart rate device on a given channel.
- * 
- * @async
- * @function attachToDevice
- * @param {number} channel - The ANT+ channel number to attach the sensor to
- * @param {number} deviceId - The device ID of the heart rate sensor to attach
- * @returns {Promise<void>} Resolves when the sensor is successfully attached
- * @throws {Error} Throws an error with message "ATTACH_TIMEOUT" if the sensor fails to attach within 2000ms
- * 
- * @description
- * Attempts to attach a heart rate sensor to the specified channel and device ID.
- * Sets up event listeners for sensor attachment, detachment, and heart rate data.
- * Sends WebSocket messages to notify clients of attachment status and heart rate updates.
- * If attachment does not complete within 1 seconds, the promise is rejected with an ATTACH_TIMEOUT error.
- */
-async function attachToDevice(channel, deviceId) {
-    return new Promise((resolve,reject) => {
-        const sensor = new Ant.HeartRateSensor(stick);
-        let finished = false;
 
-        sensor.on('attached', () => {
+
+/**
+ * Attach with a short warmup phase followed by a specific attach.
+ *
+ * Performs a quick warmup scan to detect the device, then detaches and
+ * attempts a specific attach on a dedicated channel to receive full data.
+ * Handles timeouts and resolves or rejects the provided promise.
+ *
+ * @param {number} deviceId - Sensor device ID to attach.
+ * @param {number} channel - Channel used for warmup scan.
+ * @param {number} specificChannel - Channel used for the specific attach.
+ * @param {Function} resolve - Promise resolve callback.
+ * @param {Function} reject - Promise reject callback.
+ * @returns {void} Resolves via the provided callbacks when attached.
+ * @throws {Error} When warmup or specific attach times out.
+ */
+async function attachWithWarmup(deviceId, channel, specificChannel, resolve, reject) {
+    const context = `[Device ${deviceId}]`;
+    let finished = false;
+    let warmupTimeout;
+    let specificTimeout;
+    let warmupSensor = null;
+    let specificSensor = null;
+    let gotFirstData = false;
+
+    warmupSensor = new Ant.HeartRateSensor(stick);
+
+    warmupSensor.on("attached", () => {
+        console.log(context, `Warmup sensor attached on ch ${channel}`);
+    });
+
+    warmupSensor.on("heartRateData", data => {
+        if (data.DeviceId === deviceId && !gotFirstData) {
+            gotFirstData = true;
+            console.log(context, ` Device detected: ${data.DeviceId}`);
+            clearTimeout(warmupTimeout);
+            warmupSensor.detach();
+        }
+    });
+
+    warmupSensor.on("detached", () => {
+        console.log(context, "Warmup sensor detached");
+
+        if (!gotFirstData) {
+            console.log(context, "Device not detected during warmup!!");
+        }
+        specificSensor = new Ant.HeartRateSensor(stick);
+
+        specificSensor.on("attached", () => {
             if (finished) return;
             finished = true;
-            clearTimeout(timer);
-            console.log(`Sensor  ${deviceId} attached on channel ${channel}\n`);
+            clearTimeout(specificTimeout);
+            console.log(context, `Specific sensor attached on channel ${specificChannel}`);
             sendToClient({ type: MessageTypes.DEVICE_ATTACHED, deviceId, channel });
             resolve();
         });
 
-        sensor.on('detached', () => {
-            console.log(`Sensor ${deviceId} detached`);
-            sendToClient({ type: MessageTypes.DEVICE_DETACHED, deviceId, channel });
+        specificSensor.on("heartRateData", data => {
+            if (data.DeviceId === deviceId) {
+                console.log(`ANTManager-> ${context}  \nDeviceID: ${data.DeviceId}`);
+                console.log(`   DeviceID: ${data.DeviceId}`);
+                console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
+                // console.log(`   Beat time: ${data.BeatTime}`);
+                // console.log(`   Beat Count: ${data.BeatCount}`);
+                // console.log(`  Previous Beat: ${data.PreviousBeat}`);
+                console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
+                sendToClient({ type: MessageTypes.HEART_RATE, data });
 
+            }
         });
 
-        sensor.attach(channel, deviceId);
+        specificSensor.on("detached", () => {
+            console.error(context, "Specific sensor detached!");
+        });
 
-        sensor.on("heartRateData", data => {
-            console.log(`ANTManager->   \nDeviceID: ${data.DeviceId}`);
+        console.log(context, `Attaching specific sensor on channel ${specificChannel}`);
+        specificSensor.attach(specificChannel, deviceId);
+
+        specificTimeout = setTimeout(() => {
+            if (finished) return;
+            finished = true;
+            reject(new Error("SPECIFIC_ATTACH_TIMEOUT"));
+        }, 3000);
+    });
+
+    console.log(context, `Attaching warmup on channel ${channel}...`);
+    warmupSensor.attach(channel, 0);
+
+    warmupTimeout = setTimeout(() => {
+        if (finished || gotFirstData) return;
+        console.log(context, "Warmup timeout");
+        warmupSensor.detach();
+        if (!finished) {
+            reject(new Error("WARMUP_TIMEOUT"));
+        }
+    }, 3000);
+}
+/**
+ * Attach directly to a specific sensor ID on a single channel.
+ *
+ * Attempts immediate specific-channel attachment and listens for heart rate
+ * data. Resolves when attached and rejects on timeout or failure.
+ *
+ * @param {number} deviceId - Sensor device ID to attach.
+ * @param {number} channel - Channel to attach on.
+ * @param {Function} resolve - Promise resolve callback.
+ * @param {Function} reject - Promise reject callback.
+ * @returns {void} Resolves via the provided callbacks when attached.
+ * @throws {Error} When direct attach times out or fails.
+ */
+async function attachDirectToDevice(deviceId, channel, resolve, reject) {
+    const context = `[Device ${deviceId}]`;
+    let finished = false;
+    let directTimeout;
+
+    const specificSensor = new Ant.HeartRateSensor(stick);
+
+    specificSensor.on("attached", () => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(directTimeout);
+        console.log(context, `Sensor attached on channel ${channel}`);
+        sendToClient({ type: MessageTypes.DEVICE_ATTACHED, deviceId, channel });
+
+        resolve();
+    });
+
+    specificSensor.on("heartRateData", data => {
+        if (data.DeviceId === deviceId) {
+            console.log(`ANTManager-> ${context}  \nDeviceID: ${data.DeviceId}`);
+            console.log(`   DeviceID: ${data.DeviceId}`);
             console.log(`   Frequenza cardiaca: ${data.ComputedHeartRate} bpm`);
             // console.log(`   Beat time: ${data.BeatTime}`);
             // console.log(`   Beat Count: ${data.BeatCount}`);
             // console.log(`  Previous Beat: ${data.PreviousBeat}`);
             console.log(data.BatteryLevel !== undefined ? `   Batteria : ${data.BatteryLevel}%` : "");
-
             sendToClient({ type: MessageTypes.HEART_RATE, data });
-        });
+        }
+    });
 
-        const timer = setTimeout(() => {
-            if (finished) return;
-            finished = true;
+    specificSensor.on("detached", () => {
+        console.error(context, "Sensor detached!");
+    });
 
-            sensor.detach();
+    console.log(context, `Attaching to specific ID ${deviceId} on channel ${channel}...`);
+    specificSensor.attach(channel, deviceId);
 
-            reject(new Error("ATTACH_TIMEOUT"));
-        }, 1000);
+    directTimeout = setTimeout(() => {
+        if (finished) return;
+        finished = true;
+        reject(new Error("DIRECT_ATTACH_TIMEOUT"));
+    }, 3000);
+}
+/**
+ * High-level attach wrapper that chooses the attach strategy.
+ *
+ * Inspects the device ID and delegates to either direct attach or the
+ * warmup+specific attach flow, returning a promise that resolves on attach.
+ *
+ * @param {number} deviceId - Sensor device ID to attach.
+ * @param {number} channel - Starting channel index to use.
+ * @returns {Promise<void>} Resolves when attachment succeeds.
+ * @throws {Error} Rejects with attach error codes on failure.
+ */
+async function attachDevice(deviceId, channel) {
+    return new Promise((resolve, reject) => {
+        const context = `[Device ${deviceId}]`;
+
+        if (checkDeviceIsDirectAttach(deviceId)) {
+            console.log(context, `Direct attach to specific ID on channel ${channel}`);
+            attachDirectToDevice(deviceId, channel, resolve, reject);
+        }
+        else {
+            console.log(context, `Starting warmup on channel ${channel}`);
+            attachWithWarmup(deviceId, channel, channel + 1, resolve, reject);
+        }
     });
 }
+function checkDeviceIsDirectAttach(id) {   //TODO handle better with a db field
+    if (id === 20026)
+        return true;
+    else
+        return false;
+}
 
-export async function closeStick(){
-    try{
-        if(!stick) {
+export async function closeStick() {
+    try {
+        if (!stick) {
             console.log("ANTManager-> Stick not yet existing so no problem.");
             return true;
         }
-        if (stickOpened)
-        {
+        if (stickOpened) {
             await stick.close();
             console.log("ANTManager-> Stick closed.");
             stickOpened = false;
             return true;
         }
-        else
-        {
+        else {
             console.log("ANTManager-> Stick already closed.");
             return true;
         }
-    }catch(err)
-    {
+    } catch (err) {
         console.error("ANTManager-> error on trying to close the stick", err);
         return false;
     }
@@ -302,14 +430,13 @@ function displayResults(result) {
                 height: data.userData.altezza,
                 birthDate: data.userData.data_nascita,
                 sex: data.userData.sesso,
-            };                
-            sendToClient({ type: MessageTypes.DEVICE_USER_INFO, data: { deviceId, ...info} });//the ... dismembers the info struct
+            };
+            sendToClient({ type: MessageTypes.DEVICE_USER_INFO, data: { deviceId, ...info } });//the ... dismembers the info struct
         }
-        else
-        {
+        else {
             console.log("  No user data associated with this device.");
             const registered = false;
-            sendToClient({ type:MessageTypes.DEVICE_USER_INFO, data: { deviceId, registered} });
+            sendToClient({ type: MessageTypes.DEVICE_USER_INFO, data: { deviceId, registered } });
         }
     }
 }
