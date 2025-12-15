@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Read JSON body
 $raw = file_get_contents('php://input');
 $data = json_decode($raw, true);
-if($DEBUG) {
+if ($DEBUG) {
     var_dump($raw);
     var_dump($data);
     echo json_last_error_msg();
@@ -72,11 +72,11 @@ if (count($deviceIds) > $MAX_IDS) {
 }
 
 try {
-   $pdo = connectToDatabase();
+    $pdo = connectToDatabase();
 } catch (PDOException $e) {
     http_response_code(500);
     echo json_encode(['success' => false, 'error' => 'Database connection failed ']);
-    echo('nDB connect error: ' .  $e->getMessage());
+    echo ('nDB connect error: ' .  $e->getMessage());
     error_log('DB connect error: ' . $e->getMessage());
     exit;
 }
@@ -85,16 +85,16 @@ try {
     // Build placeholders for an IN() clause
     $placeholders = implode(',', array_fill(0, count($deviceIds), '?'));
     // Query: join fasce -> fascePerUtenti -> utenti
-    $sql = "SELECT f.".$fasce_chiave__COLUMN." AS device_id,
-                   u.".$utenti_ID__COLUMN." AS user_id, u.".$utenti_nome__COLUMN.", u.".$utenti_cognome__COLUMN.",
-                   u.".$utenti_data_nascita__COLUMN.", u.".$utenti_sesso__COLUMN.",
-                   dmu.".$datiMonitoraggioUtenti_altezza__COLUMN.", dmu.".$datiMonitoraggioUtenti_peso__COLUMN." 
-            FROM " . $fasce__TABLE ." f
-            JOIN " . $fascePerUtenti__TABLE ." fp ON fp.".$fascePerUtenti_ID_fascia__COLUMN." = f.".$fascePerUtenti_ID__COLUMN."
-            JOIN " . $datiMonitoraggioUtenti__TABLE ." dmu ON dmu.".$datiMonitoraggioUtenti_ID__COLUMN." = fp.".$fascePerUtenti_ID_datimonitoraggioutente__COLUMN."
-            JOIN " . $utenti__TABLE ." u ON u.".$utenti_ID__COLUMN. " = dmu.".$datiMonitoraggioUtenti_ID_utente__COLUMN."
-            WHERE f.".$fasce_chiave__COLUMN." IN ($placeholders)";
-    if($DEBUG) echo("query sql: \n".$sql);
+    $sql = "SELECT f." . $fasce_chiave__COLUMN . " AS device_id, f." . $fasce_collegabileFacilmente__COLUMN . " as easy_attach, 
+                   u." . $utenti_ID__COLUMN . " AS user_id, u." . $utenti_nome__COLUMN . ", u." . $utenti_cognome__COLUMN . ",
+                   u." . $utenti_data_nascita__COLUMN . ", u." . $utenti_sesso__COLUMN . ",
+                   dmu." . $datiMonitoraggioUtenti_altezza__COLUMN . ", dmu." . $datiMonitoraggioUtenti_peso__COLUMN . " 
+            FROM " . $fasce__TABLE . " f
+            JOIN " . $fascePerUtenti__TABLE . " fp ON fp." . $fascePerUtenti_ID_fascia__COLUMN . " = f." . $fascePerUtenti_ID__COLUMN . "
+            JOIN " . $datiMonitoraggioUtenti__TABLE . " dmu ON dmu." . $datiMonitoraggioUtenti_ID__COLUMN . " = fp." . $fascePerUtenti_ID_datimonitoraggioutente__COLUMN . "
+            JOIN " . $utenti__TABLE . " u ON u." . $utenti_ID__COLUMN . " = dmu." . $datiMonitoraggioUtenti_ID_utente__COLUMN . "
+            WHERE f." . $fasce_chiave__COLUMN . " IN ($placeholders)";
+    if ($DEBUG) echo ("query sql: \n" . $sql);
 
     $stmt = $pdo->prepare($sql);
     $stmt->execute($deviceIds);
@@ -113,8 +113,13 @@ try {
             // If already set (duplicate), skip //TODO: handle duplicates better and create a array of users?
             continue;
         }
+        $isDirectAttach = false;
+        if ($row['easy_attach'] == 1) {
+            $isDirectAttach = true;
+        }
         $results[$deviceId] = [
             'registered' => true,
+            'direct_attach' => $isDirectAttach,
             'user' => [
                 'id' => $row['user_id'],
                 'nome' => $row['nome'] ?? null,
@@ -134,5 +139,3 @@ try {
     error_log('DB query error: ' . $e->getMessage());
     exit;
 }
-
-?>

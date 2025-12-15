@@ -25,7 +25,7 @@ const wss = new WebSocketServer({ server });
 
 const serverState = {
     phase: Phases.SCANNING,      // Phases.SCANNING | Phases.SELECTION | Phases.WORKOUT
-    foundDevices: [],       // [{ registered, deviceId, name, surname, weight, birthDate, sex }]           useful in scanning and selection phases
+    foundDevices: [],       // [{ registered, isDirectAttach, deviceId, name, surname, weight, birthDate, sex }]           useful in scanning and selection phases
     selectedDevices: [],    // [{ deviceId, name, surname, weight, birthDate,hrMax, hrMin, hrBuffer[] }]   useful in workout phase
     workoutData: {}              // { startDate, endDate, intervalDuration, type}                     useful in workout phase
 };
@@ -62,6 +62,7 @@ wss.on("connection", (ws) => {
                         }
                         serverState.foundDevices.push({
                             registered: msg.data.registered,
+                            isDirectAttach:msg.data.isDirectAttach,
                             deviceId: msg.data.deviceId,
                             name: msg.data.name,
                             surname: msg.data.surname,
@@ -83,7 +84,7 @@ wss.on("connection", (ws) => {
                     break;
                 case MessageTypes.UPDATE_SELECTED_DEVICE:
                     if (DEBUG) console.log(`Server-> data received on updateSelectedDevice: ${msg.data}`);
-                    for (const selectedId of msg.data) {
+                    for (const {selectedId,isDirectAttach} of msg.data) {
                         if (DEBUG) console.log(`Server-> selected id: ${selectedId}`);
                         const selectedIdStr = String(selectedId);
                         const foundDev = serverState.foundDevices.find(d => d.deviceId === selectedIdStr);
@@ -91,6 +92,7 @@ wss.on("connection", (ws) => {
                             if (DEBUG) console.log(`Server-> found id that matches into foundDevices: ${selectedId}`);
                             serverState.selectedDevices.push({
                                 deviceId: foundDev.deviceId,
+                                isDirectAttach: foundDev.isDirectAttach,
                                 name: foundDev.name,
                                 surname: foundDev.surname,
                                 weight: foundDev.weight,

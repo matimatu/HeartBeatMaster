@@ -34,7 +34,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 			const mod = await import('node-fetch');
 			fetchImpl = mod.default || mod;
 		} catch (e) {
-			throw new Error('No fetch available. Please run on Node 18+ or install node-fetch and pass fetchImpl in options');
+			throw new Error('phpConnector-> No fetch available. Please run on Node 18+ or install node-fetch and pass fetchImpl in options');
 		}
 	}
 
@@ -58,7 +58,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 		});
 	} catch (err) {
 		if (err.name === 'AbortError') {
-			throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+			throw new Error(`phpConnector-> Request to ${url} timed out after ${timeoutMs}ms`);
 		}
 		throw err;
 	} finally {
@@ -67,7 +67,7 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 
 	if (!resp.ok) {
 		const text = await resp.text().catch(() => '');
-		throw new Error(`API request failed: ${resp.status} ${resp.statusText} ${text}`);
+		throw new Error(`phpConnector-> API request failed: ${resp.status} ${resp.statusText} ${text}`);
 	}
 
 	let data;
@@ -75,15 +75,15 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 		data = await resp.json();
 	} catch (err) {
 		const txt = await resp.text().catch(() => '');
-		throw new Error('Failed to parse JSON from API response: ' + txt + "\n" + err.message);
+		throw new Error('phpConnector-> Failed to parse JSON from API response: ' + txt + "\n" + err.message);
 	}
 
 	// Normalize response into map: deviceId -> username|null
 	const result = {};
 	if (DEBUG)
-		console.log("response raw json: ", data);
+		console.log("phpConnector-> response raw json: ", data);
 	if (data && typeof data === 'object' && !Array.isArray(data)) {
-		// Handle the API response format: { success: true, data: { deviceId: { registered, user } } }
+		// Handle the API response format: { success: true, data: { deviceId: { registered,isDirectAttach, user } } }
 		const devices = data.data && typeof data.data === 'object' ? data.data : data;
 		for (const id of deviceIds) {
 			const key = String(id);
@@ -94,12 +94,14 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 				result[key] = {
 					username: userData ? `${userData.nome} ${userData.cognome}` : null,
 					registered: deviceData.registered,
+					isDirectAttach: deviceData.direct_attach,
 					userData: userData  // optional: include full user data if needed
 				};
 			} else {
-				result[key] = { username: null, registered: false, userData: null };
+				result[key] = { username: null, registered: false,isDirectAttach: false, userData: null };
 			}
 		}
+		if(DEBUG) console.log("phpConnector-> result",result);
 		return result;
 	}
 	if (Array.isArray(data)) {
@@ -134,20 +136,20 @@ export async function queryDeviceOwners(deviceIds, timeoutMs) {
 		for (const id of deviceIds) {
 			const key = String(id);
 			const username = Object.prototype.hasOwnProperty.call(map, key) ? map[key] : null;
-			result[key] = { username, registered: username != null };
+			result[key] = { username, registered: username != null};
 		}
 		return result;
 	}
-	throw new Error('Unexpected API response format: ' + JSON.stringify(data));
+	throw new Error('phpConnector-> Unexpected API response format: ' + JSON.stringify(data));
 }
 
 export async function registerNewDevice(deviceId, mail, password, weight, height, timeoutMs) {
 	// Validate input types
-	if (deviceId == null) throw new TypeError("deviceId must be provided");
-	if (mail == null) throw new TypeError("mail must be provided");
-	if (password == null) throw new TypeError("password must be provided");
-	if (weight == null) throw new TypeError("weight must be provided");
-	if (height == null) throw new TypeError("height must be provided");
+	if (deviceId == null) throw new TypeError("phpConnector-> deviceId must be provided");
+	if (mail == null) throw new TypeError("phpConnector-> mail must be provided");
+	if (password == null) throw new TypeError("phpConnector-> password must be provided");
+	if (weight == null) throw new TypeError("phpConnector-> weight must be provided");
+	if (height == null) throw new TypeError("phpConnector-> height must be provided");
 
 	if (timeoutMs == null || timeoutMs === 0) timeoutMs = 5000;
 
@@ -161,7 +163,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 			const mod = await import('node-fetch');
 			fetchImpl = mod.default || mod;
 		} catch (err) {
-			throw new Error('No fetch available. Use Node 18+ or install node-fetch.');
+			throw new Error('phpConnector-> No fetch available. Use Node 18+ or install node-fetch.');
 		}
 	}
 
@@ -170,6 +172,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 	const signal = controller ? controller.signal : undefined;
 
 	// Build the JSON payload for the API
+	//TODO add isDirectAttach
 	const body = JSON.stringify({
 		device_id: deviceId,
 		mail,
@@ -193,7 +196,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 	} catch (err) {
 		// Distinguish between timeout vs other fetch errors
 		if (err.name === 'AbortError') {
-			throw new Error(`Request to ${url} timed out after ${timeoutMs}ms`);
+			throw new Error(`phpConnector-> Request to ${url} timed out after ${timeoutMs}ms`);
 		}
 		throw err;
 	} finally {
@@ -215,7 +218,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 
 		// Other error codes → throw
 		const text = await resp.text().catch(() => '');
-		throw new Error(`API request failed: ${resp.status} ${resp.statusText} ${text}`);
+		throw new Error(`phpConnector-> API request failed: ${resp.status} ${resp.statusText} ${text}`);
 	}
 
 	// Parse JSON response with fallback to text on failure
@@ -224,7 +227,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 		data = await resp.json();
 	} catch (err) {
 		const txt = await resp.text().catch(() => '');
-		throw new Error('Failed to parse JSON from API response: ' + txt + "\n" + err.message);
+		throw new Error('phpConnector-> Failed to parse JSON from API response: ' + txt + "\n" + err.message);
 	}
 
 	/*
@@ -257,7 +260,7 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 		result.message = data.message ?? null;
 		result.data = data.data ?? null;
 	} else {
-		throw new Error('Unexpected API response format: ' + JSON.stringify(data));
+		throw new Error('phpConnector-> Unexpected API response format: ' + JSON.stringify(data));
 	}
 
 	return result;
@@ -278,24 +281,24 @@ export async function registerNewDevice(deviceId, mail, password, weight, height
 export async function saveWorkoutData(jsonData, startDate, endDate, intervalDuration, workoutType) {
 	// --- Input Validation ---
 	if (jsonData == null) {
-		console.error('saveWorkoutData: jsonData is required');
+		console.error('phpConnector-> jsonData is required');
 		return false;
 	}
 
 	if (!Array.isArray(jsonData)) {
-		console.error('saveWorkoutData: jsonData must be an array');
+		console.error('phpConnector-> jsonData must be an array');
 		return false;
 	}
 
 	if (jsonData.length === 0) {
-		console.error('saveWorkoutData: jsonData array is empty');
+		console.error('phpConnector-> jsonData array is empty');
 		return false;
 	}
 
 	if(startDate != null)	{
 		if(typeof startDate === 'string') {
 			if (startDate.trim() === '') {
-				console.error('saveWorkoutData: startDate must be a non-empty string: ');
+				console.error('phpConnector-> startDate must be a non-empty string: ');
 				return false;
 			}
 			const tmp = new Date(startDate);
@@ -306,19 +309,19 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 		}
 	}
 	else{
-		console.error('saveWorkoutData: startDate is null');
+		console.error('phpConnector-> startDate is null');
 		return false;
 	}
 	startDate = checkAndFormatDate(startDate);
 	endDate = 	checkAndFormatDate(endDate);
 
 	if (intervalDuration == null || !Number.isInteger(Number(intervalDuration)) || Number(intervalDuration) <= 0) {
-		console.error('saveWorkoutData: intervalDuration must be a positive integer');
+		console.error('phpConnector-> intervalDuration must be a positive integer');
 		return false;
 	}
 
 	if (workoutType == null || typeof workoutType !== 'string' || workoutType.trim() === '') {
-		console.error('saveWorkoutData: workoutType must be a non-empty string');
+		console.error('phpConnector-> workoutType must be a non-empty string');
 		return false;
 	}
 	
@@ -332,7 +335,7 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 			const mod = await import('node-fetch');
 			fetchImpl = mod.default || mod;
 		} catch (err) {
-			console.error('saveWorkoutData: No fetch available. Please run on Node 18+ or install node-fetch');
+			console.error('phpConnector-> No fetch available. Please run on Node 18+ or install node-fetch');
 			return false;
 		}
 	}
@@ -353,7 +356,7 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 
 	let resp;
 	try {
-		if (DEBUG) console.log('saveWorkoutData -> POST', url, 'with body:', JSON.parse(body), "\n");
+		if (DEBUG) console.log('phpConnector-> POST', url, 'with body:', JSON.parse(body), "\n");
 		resp = await fetchImpl(url, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -362,10 +365,10 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 		});
 	} catch (err) {
 		if (err.name === 'AbortError') {
-			console.error(`saveWorkoutData: request to ${url} timed out after ${timeoutMs}ms`);
+			console.error(`phpConnector-> request to ${url} timed out after ${timeoutMs}ms`);
 			return false;
 		}
-		console.error('saveWorkoutData -> fetch error:', err.message);
+		console.error('phpConnector-> fetch error:', err.message);
 		return false;
 	} finally {
 		if (timer) clearTimeout(timer);
@@ -373,33 +376,33 @@ export async function saveWorkoutData(jsonData, startDate, endDate, intervalDura
 
 	if (!resp.ok) {
 		const text = await resp.text().catch(() => '');
-		console.error(`saveWorkoutData -> API returned ${resp.status} ${resp.statusText}: ${text}`);
+		console.error(`phpConnector-> API returned ${resp.status} ${resp.statusText}: ${text}`);
 		return false;
 	}
 
 	// Parse JSON response
 	try {
 		const data = await resp.json().catch(() => null);
-		if (DEBUG) console.log('saveWorkoutData -> response:', data);
+		if (DEBUG) console.log('phpConnector-> response:', data);
 
 		// API response format: { success: boolean, message: string, workoutId: number, deviceCount: number }
 		if (data && typeof data === 'object') {
 			if (typeof data.success === 'boolean') {
 				if (data.success) {
-					if(DEBUG) console.log(`saveWorkoutData: Success! Saved workout ${data.workoutId} with ${data.deviceCount} devices`);
+					if(DEBUG) console.log(`phpConnector-> Success! Saved workout ${data.workoutId} with ${data.deviceCount} devices`);
 					
 					return true;
 				} else {
-					console.error('saveWorkoutData: API returned error:', data.error || data.message);
+					console.error('phpConnector-> API returned error:', data.error || data.message);
 					return false;
 				}
 			}
 		}
 
-		console.error('saveWorkoutData: Unexpected API response format');
+		console.error('phpConnector-> Unexpected API response format');
 		return false;
 	} catch (err) {
-		console.error('saveWorkoutData -> failed parsing response:', err.message);
+		console.error('phpConnector-> failed parsing response:', err.message);
 		return false;
 	}
 }
@@ -408,7 +411,7 @@ function checkAndFormatDate(date){
 if(date != null)	{
 		if(typeof date === 'string') {
 			if (date.trim() === '') {
-				console.error('saveWorkoutData: date must be a non-empty string: ');
+				console.error('phpConnector-> date must be a non-empty string: ');
 				return null;
 			}
 			const tmp = new Date(date);
@@ -419,7 +422,7 @@ if(date != null)	{
 		}
 	}
 	else{
-		console.error('saveWorkoutData: date is null');
+		console.error('phpConnector-> date is null');
 		return null;
 	}
 	return date;

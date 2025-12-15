@@ -35,6 +35,7 @@ if(!is_string($data['device_id']) || !is_string($data['mail'])
     exit;
 }
 $deviceId = strval($data['device_id']);
+$isDirectAttach = false;        //TODO handle it better with some boolean from the caller
 $mail = trim($data['mail']);
 $password = trim($data['password']);
 $weight = trim($data['weight']);
@@ -128,6 +129,7 @@ try {
         'message' => 'Device registered successfully',
         'data' => [
             'registered' => true,
+            'direct_attach' => $isDirectAttach,   //TODO handle it better, with a test in app and then a boolean to insert here
             'name' => $userName,
             'surname' => $userSurname,
             'weight' => $weight,

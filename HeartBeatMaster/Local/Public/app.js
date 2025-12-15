@@ -4,7 +4,7 @@ import { MessageTypes,WorkoutTypes,Phases } from "./costantsHandler.js";
 
 const DEBUG = true;
 let clientState = {
-    foundDevices: [],   // [{ registered, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
+    foundDevices: [],   // [{ registered, isDirectAttach, deviceId, name, surname, weight, birthDate, sex }]               useful in scanning and selection phases
     selectedDevices: [], // [{ deviceId, name, surname, weight, birthDate, sex, hrMax, hrMin, caloriesBurnt,hrBuffer[{ hr, timestamp }] }]  useful in workout phase
     workoutData:{}       // { startDate, endDate, intervalDuration}                     useful in workout phase
 };
@@ -36,6 +36,7 @@ ws.onmessage = e => {
             if (msg.data.registered === true) {
                 clientState.foundDevices.push({
                     registered:msg.data.registered,
+                    isDirectAttach:msg.data.isDirectAttach,
                     deviceId: msg.data.deviceId,
                     name: msg.data.name,
                     surname: msg.data.surname,
@@ -286,8 +287,14 @@ function renderStartAttachButton() {
                 showWarningPopup("Selezionare almeno un partecipante da monitorare!");
                 return;
             }
+            const idAndIsDirectAttach_array = [];
+
+            for(const deviceId of selectedDeviceIds){
+                const selectedDevice = clientState.foundDevices.find(dev => dev.deviceId == String(deviceId));
+                idAndIsDirectAttach_array.push({selectedId: deviceId, isDirectAttach: selectedDevice.isDirectAttach});
+            }
             console.log("Sending selected devices to server...");
-            sendToServer({ type: MessageTypes.UPDATE_SELECTED_DEVICE, data: selectedDeviceIds });  //sending data to server which forward to ANT Manager
+            sendToServer({ type: MessageTypes.UPDATE_SELECTED_DEVICE, data: idAndIsDirectAttach_array });  //sending data to server which forward to ANT Manager
         });
 
         btnWrapper.appendChild(button);

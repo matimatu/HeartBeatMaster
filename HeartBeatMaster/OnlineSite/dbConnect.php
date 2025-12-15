@@ -3,6 +3,7 @@
 $fasce__TABLE = 'fasce';
     $fasce_ID__COLUMN = 'ID';
     $fasce_chiave__COLUMN = 'chiave';
+    $fasce_collegabileFacilmente__COLUMN = 'collegabile_facilmente';
 $fascePerUtenti__TABLE = 'fasceperutenti';
     $fascePerUtenti_ID__COLUMN = 'ID';
     $fascePerUtenti_ID_fascia__COLUMN = 'ID_fascia';
@@ -48,7 +49,7 @@ $datiWorkout__TABLE = 'datiworkout';
     $datiWorkout_num_intervallo__COLUMN = 'num_intervallo';
     $datiWorkout_frequenza_cardiaca__COLUMN = 'frequenza_cardiaca';
     $datiWorkout_calorie_bruciate__COLUMN = 'calorie_bruciate';
-    $datiWorkout_intesita__COLUMN = 'intensita';
+    $datiWorkout_intensita__COLUMN = 'intensita';
 function connectToDatabase() {
     
     $config = require __DIR__ . '/config.php';

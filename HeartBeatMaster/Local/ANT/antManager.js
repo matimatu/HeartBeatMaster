@@ -171,20 +171,20 @@ async function checkForDeviceUsers(ids) {
     return result;
 }
 
-async function attachSelectedDevices(ids) {
+async function attachSelectedDevices(idAndDirectAttach_array) {
     let channel = 0;
     let promises = [];
-    if (ids.length === 0) {
+    if (idAndDirectAttach_array.length === 0) {
         console.log("ANTManager-> No devices selected to attach.");
         //TODO send message to client
         return "NO_SELECTED_DEVICES";
     }
     console.log("\nANTManager-> Attaching to selected devices...");
-    console.log(ids.length + " devices to attach to.");
-    for (const deviceId of ids) {
-        console.log("\nANTManager-> Attaching to device:", deviceId);
-        promises.push(attachDevice(deviceId, channel));
-        if (checkDeviceIsDirectAttach(deviceId)) {
+    console.log(idAndDirectAttach_array.length + " devices to attach to.");
+    for (const pair of idAndDirectAttach_array) {
+        console.log("\nANTManager-> Attaching to device:", pair.selectedId);
+        promises.push(attachDevice( pair.selectedId, channel,pair.isDirectAttach));
+        if (pair.isDirectAttach) {
             channel += 1;  // only one channel for the specific attach
         } else {
             channel += 2;  // 2 channels for warmup + specific attach
@@ -369,11 +369,11 @@ async function attachDirectToDevice(deviceId, channel, resolve, reject) {
  * @returns {Promise<void>} Resolves when attachment succeeds.
  * @throws {Error} Rejects with attach error codes on failure.
  */
-async function attachDevice(deviceId, channel) {
+async function attachDevice(deviceId, channel,isDirectAttach) {
     return new Promise((resolve, reject) => {
         const context = `[Device ${deviceId}]`;
 
-        if (checkDeviceIsDirectAttach(deviceId)) {
+        if (isDirectAttach) {
             console.log(context, `Direct attach to specific ID on channel ${channel}`);
             attachDirectToDevice(deviceId, channel, resolve, reject);
         }
@@ -382,12 +382,6 @@ async function attachDevice(deviceId, channel) {
             attachWithWarmup(deviceId, channel, channel + 1, resolve, reject);
         }
     });
-}
-function checkDeviceIsDirectAttach(id) {   //TODO handle better with a db field
-    if (id === 20026)
-        return true;
-    else
-        return false;
 }
 
 export async function closeStick() {
@@ -416,14 +410,15 @@ function displayResults(result) {
     console.log("\nResults:");
     for (const [deviceId, data] of Object.entries(result)) {
         console.log("Device:", deviceId);
-
         if (data.userData) {
+            console.log("  Direct attach:",data.isDirectAttach);
             console.log("  Username:", data.userData.nome, data.userData.cognome);
             console.log("  Weight:", data.userData.peso);
             console.log("  Height:", data.userData.altezza);
             console.log("  Sex:", data.userData.sesso === Sex.MALE ? Sex.MALE : Sex.FEMALE);
             const info = {
                 registered: true,
+                isDirectAttach: data.isDirectAttach,
                 name: data.userData.nome,
                 surname: data.userData.cognome,
                 weight: data.userData.peso,

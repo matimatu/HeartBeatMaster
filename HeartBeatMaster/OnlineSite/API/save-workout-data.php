@@ -427,7 +427,7 @@ function createDatiworkout($pdo, $partecipanteId, $intervalNumber, $heartRate, $
             (" . $datiWorkout_ID_partecipanteWorkout__COLUMN . ", " . $datiWorkout_num_intervallo__COLUMN . ", " .
             $datiWorkout_frequenza_cardiaca__COLUMN . ", " . $datiWorkout_calorie_bruciate__COLUMN . ", " . $datiWorkout_intensita__COLUMN . ")
             VALUES (?, ?, ?, ?, ?)";
-
+            
     $stmt = $pdo->prepare($sql);
     $stmt->execute([$partecipanteId, $intervalNumber, $heartRate, $caloriesBurnt, $intensity]);
 
