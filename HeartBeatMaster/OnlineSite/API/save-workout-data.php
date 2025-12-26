@@ -400,13 +400,13 @@ function getMonitoringDataByFascePerUtenti($pdo, $fascePerUtentiId) {
  * Create a partecipanteworkout record
  */
 function createPartecipanteworkout($pdo, $workoutId, $fasciaId,$userId, $height, $weight) {
-    global $partecipanteWorkout__TABLE;
-    global $partecipanteWorkout_ID_workout__COLUMN, $partecipanteWorkout__ID_fascia__COLUMN, $partecipanteWorkout_ID_utente__COLUMN;
-    global $partecipanteWorkout_altezza__COLUMN, $partecipanteWorkout_peso__COLUMN;
+    global $partecipantiWorkout__TABLE;
+    global $partecipantiWorkout_ID_workout__COLUMN, $partecipantiWorkout__ID_fascia__COLUMN, $partecipantiWorkout_ID_utente__COLUMN;
+    global $partecipantiWorkout_altezza__COLUMN, $partecipantiWorkout_peso__COLUMN;
 
-    $sql = "INSERT INTO " . $partecipanteWorkout__TABLE . "
-        (" . $partecipanteWorkout_ID_workout__COLUMN . ", " . $partecipanteWorkout__ID_fascia__COLUMN . ", " . 
-        $partecipanteWorkout_ID_utente__COLUMN . ", " . $partecipanteWorkout_altezza__COLUMN . ", " . $partecipanteWorkout_peso__COLUMN . ")
+    $sql = "INSERT INTO " . $partecipantiWorkout__TABLE . "
+        (" . $partecipantiWorkout_ID_workout__COLUMN . ", " . $partecipantiWorkout__ID_fascia__COLUMN . ", " . 
+        $partecipantiWorkout_ID_utente__COLUMN . ", " . $partecipantiWorkout_altezza__COLUMN . ", " . $partecipantiWorkout_peso__COLUMN . ")
         VALUES (?, ?, ?, ?, ?)";
 
     $stmt = $pdo->prepare($sql);

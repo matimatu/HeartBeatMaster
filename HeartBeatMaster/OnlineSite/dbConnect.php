@@ -35,17 +35,17 @@ $tipologieWorkout__TABLE = 'tipologieworkout';
     $tipologieWorkout_descrizione__COLUMN = 'descrizione';
     $datiWorkout_durata_intervallo_analisi__COLUMN = 'durata_intervallo_analisi';
 
-$partecipanteWorkout__TABLE = 'partecipanteworkout';
-    $partecipanteWorkout_ID__COLUMN = 'ID';
-    $partecipanteWorkout_ID_workout__COLUMN = 'ID_workout';
-    $partecipanteWorkout_ID_utente__COLUMN = 'ID_utente';
-    $partecipanteWorkout__ID_fascia__COLUMN = 'ID_fascia';  //for history
-    $partecipanteWorkout_altezza__COLUMN = 'altezza';       //for history
-    $partecipanteWorkout_peso__COLUMN = 'peso';             //for history
+$partecipantiWorkout__TABLE = 'partecipantiworkout';
+    $partecipantiWorkout_ID__COLUMN = 'ID';
+    $partecipantiWorkout_ID_workout__COLUMN = 'ID_workout';
+    $partecipantiWorkout_ID_utente__COLUMN = 'ID_utente';
+    $partecipantiWorkout__ID_fascia__COLUMN = 'ID_fascia';  //for history
+    $partecipantiWorkout_altezza__COLUMN = 'altezza';       //for history
+    $partecipantiWorkout_peso__COLUMN = 'peso';             //for history
 
 $datiWorkout__TABLE = 'datiworkout';
     $datiWorkout_ID__COLUMN = 'ID';
-    $datiWorkout_ID_partecipanteWorkout__COLUMN = 'ID_partecipanteworkout';
+    $datiWorkout_ID_partecipantiWorkout__COLUMN = 'ID_partecipantiworkout';
     $datiWorkout_num_intervallo__COLUMN = 'num_intervallo';
     $datiWorkout_frequenza_cardiaca__COLUMN = 'frequenza_cardiaca';
     $datiWorkout_calorie_bruciate__COLUMN = 'calorie_bruciate';
