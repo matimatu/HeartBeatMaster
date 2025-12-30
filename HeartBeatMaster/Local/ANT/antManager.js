@@ -7,6 +7,7 @@ let stickOpened = false;
 let wsClient = null;
 let running = false; // to handle multiple starts
 const DEBUG = false;
+const SCANNING_TIME = 1000;     //in ms
 export async function startAntManager() {
     console.log("\n\nStarting ANT+ process...");
     if (running) {
@@ -43,7 +44,7 @@ export async function startAntManager() {
             sendToClient({ type: MessageTypes.NEW_SENSOR, data });
         }
     });
-    //after 2 seconds stop scanning and check for device users
+    //after SCANNING_TIME stop scanning and check for device users
 
     setTimeout(async () => {
         hrScanner.detach();
@@ -80,7 +81,7 @@ export async function startAntManager() {
             setPhase(Phases.SELECTION);      //TODO for now is useless,since the server has FoundDevices empty
         });
 
-    }, 1000);
+    }, SCANNING_TIME);
 
     // When the stick is ready, start scanning
     stick.on("startup", () => {
