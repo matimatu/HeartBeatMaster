@@ -77,7 +77,7 @@ export async function startAntManager() {
                 sendToClient({ type: MessageTypes.ERROR_ON_CHECKFORDEVICEUSERS, data })
                 return;
             }
-            displayResults(result);
+            displayAndSendResults(result);
             setPhase(Phases.SELECTION);      //TODO for now is useless,since the server has FoundDevices empty
         });
 
@@ -406,7 +406,7 @@ export async function closeStick() {
     }
 }
 
-function displayResults(result) {
+function displayAndSendResults(result) {
     console.log("\nResults:");
     for (const [deviceId, data] of Object.entries(result)) {
         console.log("Device:", deviceId);
