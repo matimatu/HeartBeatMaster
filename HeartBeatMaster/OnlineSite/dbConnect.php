@@ -45,7 +45,7 @@ $partecipantiWorkout__TABLE = 'partecipantiworkout';
 
 $datiWorkout__TABLE = 'datiworkout';
     $datiWorkout_ID__COLUMN = 'ID';
-    $datiWorkout_ID_partecipantiWorkout__COLUMN = 'ID_partecipantiworkout';
+    $datiWorkout_ID_partecipanteWorkout__COLUMN = 'ID_partecipanteworkout';
     $datiWorkout_num_intervallo__COLUMN = 'num_intervallo';
     $datiWorkout_frequenza_cardiaca__COLUMN = 'frequenza_cardiaca';
     $datiWorkout_calorie_bruciate__COLUMN = 'calorie_bruciate';
